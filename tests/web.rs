@@ -198,6 +198,174 @@ async fn web_feeds_renders() {
     let bytes = res.into_body().collect().await.unwrap().to_bytes();
     let html = String::from_utf8(bytes.to_vec()).unwrap();
     assert!(html.contains("Feeds"));
+    assert!(html.contains("Add feed"));
+    assert!(html.contains("Discover feeds"));
+    assert!(html.contains("Import OPML"));
+}
+
+#[tokio::test]
+async fn web_add_feed_creates_subscription() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+
+    let form = "url=https%3A%2F%2Fexample.com%2Ffeed.xml";
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/feeds/add")
+                .header("Authorization", format!("Bearer {}", token))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(Body::from(form))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+    assert_eq!(res.headers().get("location").unwrap(), "/feeds");
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/feeds"))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("https://example.com/feed.xml"));
+}
+
+#[tokio::test]
+async fn web_delete_feed_removes_subscription() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+
+    let form = "url=https%3A%2F%2Fexample.com%2Ffeed.xml";
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/feeds/add")
+                .header("Authorization", format!("Bearer {}", token))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(Body::from(form))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/feeds"))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("https://example.com/feed.xml"));
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/feeds/1/delete")
+                .header("Authorization", format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/feeds"))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("No feeds yet."));
+}
+
+#[tokio::test]
+async fn web_refresh_feed_accepts() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+
+    let form = "url=https%3A%2F%2Fexample.com%2Ffeed.xml";
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/feeds/add")
+                .header("Authorization", format!("Bearer {}", token))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(Body::from(form))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/feeds/1/refresh")
+                .header("Authorization", format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+}
+
+#[tokio::test]
+async fn web_import_opml_adds_feeds() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+
+    let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+    let body = format!(
+        "--{}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"subs.opml\"\r\nContent-Type: application/xml\r\n\r\n{}\r\n--{}--\r\n",
+        boundary,
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head><title>Subs</title></head>
+  <body>
+    <outline text="Example" title="Example" type="rss" xmlUrl="https://example.com/feed.xml" />
+  </body>
+</opml>"#,
+        boundary
+    );
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/feeds/import")
+                .header("Authorization", format!("Bearer {}", token))
+                .header(
+                    "Content-Type",
+                    format!("multipart/form-data; boundary={}", boundary),
+                )
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("Imported 1 of 1 feeds"));
+    assert!(html.contains("https://example.com/feed.xml"));
 }
 
 #[tokio::test]

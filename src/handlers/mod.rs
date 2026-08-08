@@ -8,6 +8,7 @@ pub mod setup;
 pub mod user;
 pub mod web;
 pub mod web_article;
+pub mod web_feed;
 
 use axum::Router;
 use axum::extract::FromRequestParts;
@@ -64,7 +65,15 @@ pub fn build_app(state: AppState) -> Router {
         .route("/setup", get(setup::setup_page).post(setup::setup_submit))
         .route("/articles", get(web_article::article_list_page))
         .route("/articles/:articleId", get(web_article::article_page))
-        .route("/feeds", get(web::feeds_page))
+        .route("/feeds", get(web_feed::feeds_page))
+        .route("/feeds/add", post(web_feed::add_feed_submit))
+        .route("/feeds/discover", post(web_feed::discover_feeds_submit))
+        .route("/feeds/import", post(web_feed::import_opml_submit))
+        .route(
+            "/feeds/:feedId/refresh",
+            post(web_feed::refresh_feed_submit),
+        )
+        .route("/feeds/:feedId/delete", post(web_feed::delete_feed_submit))
         .route("/search", get(web::search_page))
         .route("/settings", get(web::settings_page))
         .with_state(state.clone());

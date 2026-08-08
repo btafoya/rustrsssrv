@@ -33,12 +33,6 @@ struct ArticleRow {
 }
 
 #[derive(Template)]
-#[template(path = "feeds.html")]
-struct FeedsTemplate {
-    feeds: Vec<crate::models::Feed>,
-}
-
-#[derive(Template)]
 #[template(path = "search.html")]
 struct SearchTemplate {
     query: String,
@@ -117,23 +111,6 @@ pub async fn dashboard(
         feed_count,
         items,
     };
-    Ok(Html(
-        tpl.render()
-            .map_err(|e| AppError::Internal(e.to_string()))?,
-    )
-    .into_response())
-}
-
-pub async fn feeds_page(
-    State(state): State<AppState>,
-    AuthUser(user_id): AuthUser,
-) -> WebResult<Response> {
-    let page = state
-        .feeds
-        .list(user_id, None, 1000)
-        .await
-        .map_err(WebError)?;
-    let tpl = FeedsTemplate { feeds: page.items };
     Ok(Html(
         tpl.render()
             .map_err(|e| AppError::Internal(e.to_string()))?,

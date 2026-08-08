@@ -98,3 +98,21 @@ Stages for building the Rust RSS server. Each stage must compile and pass its te
 - End-to-end smoke test: setup wizard, add feed, fetch articles, render article page.
 
 **Status**: Complete
+
+## Stage 6: Feed Management Web UI
+
+**Goal**: The `/feeds` web page lets users add feeds, discover feeds from a website, import OPML, and refresh or delete subscriptions without using the API directly.
+
+**Success Criteria**:
+- `/feeds` shows forms for add-by-URL, discover-from-site, and OPML import.
+- Each feed row has refresh and delete actions.
+- Successful add/discover/import/delete/refresh redirect back to `/feeds` with feedback.
+- Errors render the feeds page with an error message.
+
+**Tests**:
+- Web add feed creates a subscription.
+- Web discover shows discovered candidates.
+- Web import OPML adds subscriptions.
+- Web refresh and delete work for an existing feed.
+
+**Status**: Complete
