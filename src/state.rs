@@ -24,7 +24,14 @@ pub type AppState = Arc<AppStateInner>;
 
 impl AppStateInner {
     pub fn new(config: Config, pool: SqlitePool) -> Self {
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .user_agent(concat!(
+                env!("CARGO_PKG_NAME"),
+                "/",
+                env!("CARGO_PKG_VERSION")
+            ))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
         let cleaner = CleanerService::new(client.clone());
         let media = MediaService::new(pool.clone(), client.clone());
         let crawler = CrawlerService::new(pool.clone(), client, cleaner.clone(), media.clone());

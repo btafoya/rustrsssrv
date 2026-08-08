@@ -91,7 +91,11 @@ impl CrawlerService {
                     time::sleep(wait).await;
                 }
                 if let Err(e) = svc.fetch_feed(feed).await {
-                    tracing::warn!("feed {} fetch failed: {}", feed_id, e);
+                    let detail = match e {
+                        AppError::Internal(ref msg) => msg.clone(),
+                        _ => e.to_string(),
+                    };
+                    tracing::warn!("feed {} fetch failed: {}", feed_id, detail);
                 }
             });
         }
@@ -175,6 +179,10 @@ impl CrawlerService {
             return self
                 .record_failure(feed_id, &format!("http status {}", status.as_u16()))
                 .await;
+        }
+
+        if bytes.is_empty() {
+            return self.record_failure(feed_id, "empty response body").await;
         }
 
         let text = String::from_utf8_lossy(&bytes);

@@ -89,6 +89,25 @@ async fn mock_feed_server(body: &'static str) -> SocketAddr {
     addr
 }
 
+async fn mock_empty_feed_server() -> SocketAddr {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let app = axum::Router::new().route(
+        "/feed.xml",
+        axum::routing::get(|| async {
+            (
+                axum::http::StatusCode::ACCEPTED,
+                [(axum::http::header::CONTENT_TYPE, "application/rss+xml")],
+                "",
+            )
+        }),
+    );
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+    addr
+}
+
 #[tokio::test]
 async fn fetch_rss_feed_stores_articles_and_read_states() {
     let rss = r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -275,4 +294,51 @@ async fn duplicate_article_url_upserts_existing_row() {
     .unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].title, "Updated Title");
+}
+
+#[tokio::test]
+async fn fetch_empty_body_records_failure() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "user@example.com", "Password123!").await;
+    let token = login(&app, "user@example.com", "Password123!").await;
+
+    let addr = mock_empty_feed_server().await;
+    let feed_url = format!("http://{}/feed.xml", addr);
+
+    let body = json!({"url": feed_url});
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "POST",
+            "/api/v1/feeds",
+            Body::from(body.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let created: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let feed_id = created["id"].as_i64().unwrap();
+
+    let crawler = make_crawler(&pool);
+    let result = crawler
+        .fetch_feed(FeedRow {
+            id: feed_id,
+            url: feed_url,
+            last_etag: None,
+            last_modified: None,
+        })
+        .await;
+    assert!(result.is_err());
+
+    let log = sqlx::query!(
+        "SELECT status, error_message FROM feed_fetch_logs WHERE feed_id = ? ORDER BY fetched_at DESC LIMIT 1",
+        feed_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(log.status, "error");
+    assert_eq!(log.error_message.as_deref(), Some("empty response body"));
 }
