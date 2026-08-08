@@ -57,8 +57,21 @@ fn auth_request(token: &str, uri: &str) -> Request<Body> {
 }
 
 #[tokio::test]
-async fn web_dashboard_requires_auth() {
+async fn web_dashboard_redirects_to_setup_when_no_users() {
     let (app, _pool, _dir) = common::app_with_db().await;
+    let res = app
+        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+    assert_eq!(res.headers().get("location").unwrap(), "/setup");
+}
+
+#[tokio::test]
+async fn web_dashboard_requires_auth_after_setup() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+
     let res = app
         .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
         .await

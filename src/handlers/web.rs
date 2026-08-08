@@ -1,6 +1,6 @@
 use askama::Template;
 use axum::extract::{Query, State};
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Redirect, Response};
 
 use crate::errors::{AppError, Result};
 use crate::handlers::AuthUser;
@@ -70,8 +70,14 @@ pub async fn login_page() -> impl IntoResponse {
 
 pub async fn dashboard(
     State(state): State<AppState>,
-    AuthUser(user_id): AuthUser,
+    auth_user: Option<AuthUser>,
 ) -> Result<Response> {
+    let user_count = state.users.count().await?;
+    if user_count == 0 {
+        return Ok(Redirect::to("/setup").into_response());
+    }
+
+    let AuthUser(user_id) = auth_user.ok_or(AppError::Unauthorized)?;
     let user = state.users.get_by_id(user_id).await?;
     let feed_page = state.feeds.list(user_id, None, 1000).await?;
     let feed_count = feed_page.items.len() as i64;
