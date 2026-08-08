@@ -62,6 +62,14 @@ LOG_DIR=./logs
 RUST_LOG=info
 ```
 
+Generate a strong `JWT_SECRET` before running in production:
+
+```bash
+openssl rand -hex 32
+```
+
+Copy the output into your `.env` file or pass it as the `JWT_SECRET` environment variable.
+
 ## Running the Server
 
 Start the server:
