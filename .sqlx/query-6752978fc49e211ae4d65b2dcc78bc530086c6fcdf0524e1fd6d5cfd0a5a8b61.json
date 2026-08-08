@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users SET email = ?, timezone = ?, default_filter = ?, default_sort_order = ?, updated_at = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "6752978fc49e211ae4d65b2dcc78bc530086c6fcdf0524e1fd6d5cfd0a5a8b61"
+}

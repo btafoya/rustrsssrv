@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO subscriptions (user_id, feed_id, created_at) VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "eca9b86c73de871932ecc2c24b8fa54d20ea4dd3b1ff83b4c616082b8884b145"
+}

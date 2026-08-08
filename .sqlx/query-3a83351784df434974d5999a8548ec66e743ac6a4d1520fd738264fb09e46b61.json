@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", email, password_hash, timezone, default_filter, default_sort_order FROM users WHERE email = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "email",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "password_hash",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "timezone",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "default_filter",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "default_sort_order",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3a83351784df434974d5999a8548ec66e743ac6a4d1520fd738264fb09e46b61"
+}

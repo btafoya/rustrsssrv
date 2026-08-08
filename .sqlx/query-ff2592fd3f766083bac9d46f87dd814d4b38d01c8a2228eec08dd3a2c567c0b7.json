@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT f.id as \"id!\", f.url, f.title, f.description, f.site_url, f.fetch_interval_minutes, f.consecutive_failures, f.backoff_until\n            FROM feeds f\n            JOIN subscriptions s ON s.feed_id = f.id\n            WHERE s.user_id = ? AND f.id > ?\n            ORDER BY f.id ASC\n            LIMIT ?\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "url",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "site_url",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "fetch_interval_minutes",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "consecutive_failures",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "backoff_until",
+        "ordinal": 7,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "ff2592fd3f766083bac9d46f87dd814d4b38d01c8a2228eec08dd3a2c567c0b7"
+}

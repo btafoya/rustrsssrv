@@ -85,17 +85,16 @@ impl FeedService {
 
         let mut items: Vec<Feed> = rows
             .into_iter()
-            .map(|r| {
-                map_feed(
-                    r.id,
-                    r.url,
-                    r.title,
-                    r.description,
-                    r.site_url,
-                    r.fetch_interval_minutes,
-                    r.consecutive_failures,
-                    r.backoff_until,
-                )
+            .map(|r| Feed {
+                id: r.id,
+                url: r.url,
+                title: r.title,
+                description: r.description,
+                site_url: r.site_url,
+                fetch_interval_minutes: r.fetch_interval_minutes,
+                status: compute_status(r.consecutive_failures, r.backoff_until),
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
             })
             .collect();
 
@@ -131,16 +130,17 @@ impl FeedService {
         .await?;
 
         let row = row.ok_or(AppError::NotFound)?;
-        Ok(map_feed(
-            row.id,
-            row.url,
-            row.title,
-            row.description,
-            row.site_url,
-            row.fetch_interval_minutes,
-            row.consecutive_failures,
-            row.backoff_until,
-        ))
+        Ok(Feed {
+            id: row.id,
+            url: row.url,
+            title: row.title,
+            description: row.description,
+            site_url: row.site_url,
+            fetch_interval_minutes: row.fetch_interval_minutes,
+            status: compute_status(row.consecutive_failures, row.backoff_until),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        })
     }
 
     pub async fn update(&self, user_id: i64, feed_id: i64, req: FeedUpdate) -> Result<Feed> {
@@ -261,9 +261,8 @@ impl FeedService {
 
         let mut feeds = Vec::new();
         for url in seen {
-            match self.fetch_feed_title(&url).await {
-                Ok(title) => feeds.push(DiscoveredFeed { url, title }),
-                Err(_) => {}
+            if let Ok(title) = self.fetch_feed_title(&url).await {
+                feeds.push(DiscoveredFeed { url, title });
             }
         }
 
@@ -440,10 +439,10 @@ impl FeedService {
         }
 
         // Try JSON Feed.
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
-                return Ok(Some(title.to_string()).filter(|s| !s.is_empty()));
-            }
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text)
+            && let Some(title) = json.get("title").and_then(|v| v.as_str())
+        {
+            return Ok(Some(title.to_string()).filter(|s| !s.is_empty()));
         }
 
         Ok(None)
@@ -464,37 +463,13 @@ fn is_feed_type(t: &str) -> bool {
 
 fn compute_status(failures: i64, backoff_until: Option<i64>) -> String {
     let now = Utc::now().timestamp_millis();
-    if let Some(until) = backoff_until {
-        if until > now {
-            return "backoff".into();
-        }
+    if let Some(until) = backoff_until
+        && until > now
+    {
+        return "backoff".into();
     }
     if failures > 0 {
         return "error".into();
     }
     "ok".into()
-}
-
-fn map_feed(
-    id: i64,
-    url: String,
-    title: Option<String>,
-    description: Option<String>,
-    site_url: Option<String>,
-    fetch_interval_minutes: i64,
-    consecutive_failures: i64,
-    backoff_until: Option<i64>,
-) -> Feed {
-    let now = Utc::now();
-    Feed {
-        id,
-        url,
-        title,
-        description,
-        site_url,
-        fetch_interval_minutes,
-        status: compute_status(consecutive_failures, backoff_until),
-        created_at: now,
-        updated_at: now,
-    }
 }

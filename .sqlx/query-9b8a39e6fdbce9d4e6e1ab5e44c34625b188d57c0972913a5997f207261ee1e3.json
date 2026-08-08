@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE feeds SET fetch_interval_minutes = ?, title = ?, description = ?, site_url = ?, updated_at = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "9b8a39e6fdbce9d4e6e1ab5e44c34625b188d57c0972913a5997f207261ee1e3"
+}

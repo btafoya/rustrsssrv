@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT 1 as \"one!\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "one!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c1ba9397874b1fd4e2111aaae82efb9f4132ede8fb9bb52eb035a712a4f76aca"
+}

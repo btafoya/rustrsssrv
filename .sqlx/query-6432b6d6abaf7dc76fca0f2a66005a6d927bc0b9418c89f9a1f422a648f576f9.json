@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE feeds SET next_fetch_at = ?, cache_until = NULL WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "6432b6d6abaf7dc76fca0f2a66005a6d927bc0b9418c89f9a1f422a648f576f9"
+}

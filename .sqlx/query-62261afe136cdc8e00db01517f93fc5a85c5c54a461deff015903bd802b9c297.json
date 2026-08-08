@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) as \"cnt!\" FROM users",
+  "describe": {
+    "columns": [
+      {
+        "name": "cnt!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "62261afe136cdc8e00db01517f93fc5a85c5c54a461deff015903bd802b9c297"
+}

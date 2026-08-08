@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT title FROM feeds WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "title",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "3995b39fcb5980e486348c48293899c6834d892149a046b34be65d41eff74a70"
+}

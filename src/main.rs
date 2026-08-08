@@ -29,10 +29,10 @@ async fn main() {
         .database_url
         .trim_start_matches("sqlite:")
         .trim_start_matches("//");
-    if let Some(parent) = Path::new(db_path).parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).expect("create database directory");
-        }
+    if let Some(parent) = Path::new(db_path).parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent).expect("create database directory");
     }
 
     let options = SqliteConnectOptions::new()
