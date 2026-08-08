@@ -39,6 +39,8 @@ Stages for building the Rust RSS server. Each stage must compile and pass its te
 - Discover feeds on a small local HTML page.
 - Import and export a known OPML file.
 
+**Status**: Complete
+
 ## Stage 3: Background Crawler and Article Ingestion
 
 **Goal**: The server polls subscribed feeds, normalizes articles, and stores them with the correct per-user read state.
@@ -55,6 +57,8 @@ Stages for building the Rust RSS server. Each stage must compile and pass its te
 - Fetch a local RSS/Atom/JSON feed and verify stored article fields.
 - Verify duplicate articles by URL update the existing row instead of creating a new one.
 - Verify a user only sees articles from feeds they subscribe to.
+
+**Status**: Complete
 
 ## Stage 4: Content Cleaning and Media Proxy
 

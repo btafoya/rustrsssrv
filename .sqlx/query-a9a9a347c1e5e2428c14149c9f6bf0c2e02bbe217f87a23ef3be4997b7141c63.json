@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO feed_fetch_logs (feed_id, status, articles_found) VALUES (?, 'ok', ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "a9a9a347c1e5e2428c14149c9f6bf0c2e02bbe217f87a23ef3be4997b7141c63"
+}

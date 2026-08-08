@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT id as \"id!\", url, last_etag, last_modified\n            FROM feeds\n            WHERE next_fetch_at <= ?\n            ORDER BY next_fetch_at ASC\n            LIMIT 100\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "url",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "last_etag",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "last_modified",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "074d4f53230025f601b65eb306c0e4008c58b97891497e6f360319ffafdd22cd"
+}

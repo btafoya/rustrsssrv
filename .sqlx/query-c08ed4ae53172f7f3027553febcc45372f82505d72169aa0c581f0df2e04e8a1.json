@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO articles (url, title, summary, raw_html, markdown_content, published_at, fetched_at, updated_at)\n            VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n            ON CONFLICT(url) DO UPDATE SET\n                title = excluded.title,\n                summary = excluded.summary,\n                raw_html = excluded.raw_html,\n                markdown_content = excluded.markdown_content,\n                fetched_at = excluded.fetched_at,\n                updated_at = excluded.updated_at\n            RETURNING id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c08ed4ae53172f7f3027553febcc45372f82505d72169aa0c581f0df2e04e8a1"
+}

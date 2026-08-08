@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                a.id as \"id!\",\n                a.url,\n                a.title,\n                a.summary,\n                a.markdown_content,\n                a.published_at,\n                a.fetched_at,\n                af.feed_id as \"feed_id!\",\n                f.title as feed_title,\n                COALESCE(rs.is_read, 0) as \"is_read!: i32\",\n                COALESCE(rs.is_starred, 0) as \"is_starred!: i32\"\n            FROM articles a\n            JOIN article_feeds af ON af.article_id = a.id\n            JOIN subscriptions s ON s.feed_id = af.feed_id AND s.user_id = ?\n            JOIN feeds f ON f.id = af.feed_id\n            LEFT JOIN read_states rs ON rs.article_id = a.id AND rs.user_id = ?\n            WHERE a.id = ?\n            AND af.feed_id = (\n                SELECT MIN(af2.feed_id)\n                FROM article_feeds af2\n                JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?\n                WHERE af2.article_id = a.id\n            )\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "url",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "summary",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "markdown_content",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "published_at",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "fetched_at",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "feed_id!",
+        "ordinal": 7,
+        "type_info": "Integer"
+      },
+      {
+        "name": "feed_title",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "is_read!: i32",
+        "ordinal": 9,
+        "type_info": "Null"
+      },
+      {
+        "name": "is_starred!: i32",
+        "ordinal": 10,
+        "type_info": "Null"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "82e62bc73f8f9023d54d899b41eef31b7cfc2d12c55caffc9e696c719cd1f333"
+}

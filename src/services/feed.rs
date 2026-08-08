@@ -9,21 +9,24 @@ use crate::models::{
     CreateFeedRequest, DiscoverRequest, DiscoverResponse, DiscoveredFeed, Feed, FeedPage,
     FeedUpdate, ImportResult, ImportedFeed,
 };
+use crate::services::crawler::{CrawlerService, FeedRow};
 
 #[derive(Clone)]
 pub struct FeedService {
     pool: SqlitePool,
     client: Client,
+    crawler: CrawlerService,
 }
 
 impl FeedService {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: SqlitePool, crawler: CrawlerService) -> Self {
         Self {
             pool,
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .unwrap(),
+            crawler,
         }
     }
 
@@ -59,6 +62,23 @@ impl FeedService {
         )
         .execute(&self.pool)
         .await?;
+
+        // Trigger immediate fetch in the background.
+        let url = req.url.clone();
+        let crawler = self.crawler.clone();
+        tokio::spawn(async move {
+            if let Err(e) = crawler
+                .fetch_feed(FeedRow {
+                    id: feed_id,
+                    url,
+                    last_etag: None,
+                    last_modified: None,
+                })
+                .await
+            {
+                tracing::warn!("immediate fetch for feed {} failed: {}", feed_id, e);
+            }
+        });
 
         self.get(user_id, feed_id).await
     }
@@ -406,6 +426,23 @@ impl FeedService {
         )
         .execute(&self.pool)
         .await?;
+
+        // Trigger immediate fetch in the background.
+        let url = url.to_string();
+        let crawler = self.crawler.clone();
+        tokio::spawn(async move {
+            if let Err(e) = crawler
+                .fetch_feed(FeedRow {
+                    id: feed_id,
+                    url,
+                    last_etag: None,
+                    last_modified: None,
+                })
+                .await
+            {
+                tracing::warn!("immediate fetch for feed {} failed: {}", feed_id, e);
+            }
+        });
 
         self.get(user_id, feed_id).await
     }

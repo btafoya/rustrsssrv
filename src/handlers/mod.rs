@@ -1,3 +1,4 @@
+pub mod article;
 pub mod assets;
 pub mod auth;
 pub mod feed;
@@ -43,6 +44,8 @@ pub fn build_app(state: AppState) -> Router {
                 .delete(feed::delete_feed),
         )
         .route("/feeds/:feedId/refresh", post(feed::refresh_feed))
+        .route("/articles", get(article::list_articles))
+        .route("/articles/:articleId", get(article::get_article))
         .with_state(state.clone());
 
     let api_v1 = Router::new().nest("/api/v1", api);
@@ -91,6 +94,8 @@ pub fn build_app(state: AppState) -> Router {
         feed::refresh_feed,
         feed::import_opml,
         feed::export_opml,
+        article::list_articles,
+        article::get_article,
         health::health_check,
     ),
     components(schemas(
@@ -110,6 +115,8 @@ pub fn build_app(state: AppState) -> Router {
         crate::models::DiscoveredFeed,
         crate::models::ImportResult,
         crate::models::ImportedFeed,
+        crate::models::Article,
+        crate::models::ArticlePage,
     )),
     security(("BearerAuth" = []))
 )]

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT consecutive_failures FROM feeds WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "consecutive_failures",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "812483c4dbc4f110c07a653ed2aefc853c4ebdb06e1c5ee0c70d6ff773a8601d"
+}

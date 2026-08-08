@@ -54,6 +54,13 @@ async fn main() {
 
     let state = Arc::new(AppStateInner::new(config.clone(), pool));
 
+    if config.enable_crawler {
+        let crawler = state.crawler.clone();
+        tokio::spawn(async move {
+            crawler.run().await;
+        });
+    }
+
     let app = build_app(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

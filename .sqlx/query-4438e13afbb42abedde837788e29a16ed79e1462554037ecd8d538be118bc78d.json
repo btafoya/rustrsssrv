@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE feeds\n            SET consecutive_failures = ?,\n                backoff_until = ?,\n                next_fetch_at = ?,\n                updated_at = ?\n            WHERE id = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "4438e13afbb42abedde837788e29a16ed79e1462554037ecd8d538be118bc78d"
+}
