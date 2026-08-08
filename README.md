@@ -16,6 +16,160 @@ Rust RSS Server is a personal feed aggregator that fetches, stores, and serves R
 - Star articles to keep them around
 - Import and export subscriptions with OPML
 
+## Requirements
+
+- [Rust](https://www.rust-lang.org) 1.88 or later
+- [sqlx-cli](https://github.com/launchbadge/sqlx/tree/main/sqlx-cli) for running migrations
+- A free port for the HTTP server (default `9119`)
+
+## Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/btafoya/rustrsssrv.git
+cd rustrsssrv
+```
+
+2. Install the SQLx CLI if you do not already have it:
+
+```bash
+cargo install sqlx-cli --no-default-features --features native-tls,sqlite
+```
+
+3. Build the server in release mode:
+
+```bash
+cargo build --release
+```
+
+The compiled binary will be at `target/release/rustrsssrv`.
+
+## Configuration
+
+Configuration is read from environment variables. An optional `.env` file in the project root is also supported.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `sqlite:./data/rustrsssrv.db` | SQLite database path |
+| `JWT_SECRET` | `dev-secret-do-not-use-in-production` | Secret used to sign JWT tokens. **Change this in production.** |
+| `PORT` | `9119` | HTTP server port |
+| `ENABLE_CRAWLER` | `false` | Set to `true` to run the background feed crawler |
+| `LOG_DIR` | `./logs` | Directory for rolling log files |
+| `RUST_LOG` | `warn` | Log level filter, e.g. `info`, `debug` |
+
+Example `.env` file:
+
+```env
+DATABASE_URL=sqlite:./data/rustrsssrv.db
+JWT_SECRET=change-me-to-a-long-random-string
+PORT=9119
+ENABLE_CRAWLER=true
+LOG_DIR=./logs
+RUST_LOG=info
+```
+
+## Database Setup
+
+Create the database file and apply migrations before starting the server:
+
+```bash
+export DATABASE_URL=sqlite:./data/rustrsssrv.db
+cargo sqlx database create
+cargo sqlx migrate run
+```
+
+The application creates the database directory automatically when it starts if `ENABLE_CRAWLER` is set, but migrations must be applied first.
+
+## Running the Server
+
+Start the server:
+
+```bash
+./target/release/rustrsssrv
+```
+
+Or with explicit environment variables:
+
+```bash
+DATABASE_URL=sqlite:./data/rustrsssrv.db \
+JWT_SECRET=change-me \
+ENABLE_CRAWLER=true \
+./target/release/rustrsssrv
+```
+
+You should see a log line showing the bound address, for example:
+
+```text
+listening on 0.0.0.0:9119
+```
+
+## First-Time Setup
+
+When the server has no users, visiting `/` redirects to the setup wizard at `/setup`. Create the first admin account there, then log in at `/login`.
+
+Once logged in, the web UI provides:
+
+- **Dashboard** (`/`) — unread counts and recent articles
+- **Articles** (`/articles`) — read, filter, and paginate articles
+- **Feeds** (`/feeds`) — manage subscriptions
+- **Search** (`/search`) — full-text search across subscribed articles
+- **Settings** (`/settings`) — update email, timezone, default filter, and default sort order
+
+## Using the API
+
+The REST API is available under `/api/v1` and documented interactively at `/api-docs`.
+
+Common workflows:
+
+```bash
+# Log in
+TOKEN=$(curl -s -X POST http://localhost:9119/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"Password123!"}' \
+  | jq -r '.access_token')
+
+# Subscribe to a feed
+curl -X POST http://localhost:9119/api/v1/feeds \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com/feed.xml"}'
+
+# List articles
+curl http://localhost:9119/api/v1/articles \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Mark an article read
+curl -X POST http://localhost:9119/api/v1/articles/1/read \
+  -H "Authorization: Bearer $TOKEN"
+
+# Search
+curl "http://localhost:9119/api/v1/search?q=rust&limit=10" \
+  -H "Authorization: Bearer $TOKEN" | jq
+```
+
+## Background Crawler
+
+The in-process crawler polls subscribed feeds every 15 minutes by default. Feed-specific intervals can be set to `5`, `15`, `30`, `60`, `120`, `240`, `720`, or `1440` minutes. Enable the crawler with `ENABLE_CRAWLER=true`. Without it, the server serves stored articles but does not fetch new content.
+
+## Development
+
+Run the test suite:
+
+```bash
+export DATABASE_URL=sqlite:./data/rustrsssrv.db
+cargo fmt
+cargo clippy --all-targets --all-features -- -D warnings
+cargo nextest run
+```
+
+Regenerate SQLx offline query data after any schema or query change:
+
+```bash
+export DATABASE_URL=sqlite:./data/rustrsssrv.db
+cargo sqlx prepare -- --all-targets
+```
+
 ## Who Made This
 
 Built by [Brian Tafoya](https://briantafoya.com).
