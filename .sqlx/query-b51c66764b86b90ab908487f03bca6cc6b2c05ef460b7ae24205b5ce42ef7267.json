@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT markdown_content, raw_html, summary FROM articles WHERE url = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "markdown_content",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "raw_html",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "summary",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "b51c66764b86b90ab908487f03bca6cc6b2c05ef460b7ae24205b5ce42ef7267"
+}

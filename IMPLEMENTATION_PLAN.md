@@ -79,6 +79,8 @@ Stages for building the Rust RSS server. Each stage must compile and pass its te
 - Fetch a media asset through the proxy and verify the correct MIME type and hash.
 - Verify base64 inlining for small images and proxy URLs for large images.
 
+**Status**: Complete
+
 ## Stage 5: Reading State, Search, Web UI, and Polish
 
 **Goal**: Users can read/star articles, search, use the TailAdmin-styled web UI, and the deployment works end-to-end.

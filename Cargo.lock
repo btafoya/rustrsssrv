@@ -2764,6 +2764,7 @@ dependencies = [
  "askama",
  "atom_syndication",
  "axum",
+ "base64 0.22.1",
  "bcrypt",
  "blake3",
  "chrono",

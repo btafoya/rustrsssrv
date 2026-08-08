@@ -3,9 +3,11 @@ pub mod assets;
 pub mod auth;
 pub mod feed;
 pub mod health;
+pub mod media;
 pub mod setup;
 pub mod user;
 pub mod web;
+pub mod web_article;
 
 use axum::Router;
 use axum::extract::FromRequestParts;
@@ -46,6 +48,7 @@ pub fn build_app(state: AppState) -> Router {
         .route("/feeds/:feedId/refresh", post(feed::refresh_feed))
         .route("/articles", get(article::list_articles))
         .route("/articles/:articleId", get(article::get_article))
+        .route("/media/:mediaHash", get(media::get_media))
         .with_state(state.clone());
 
     let api_v1 = Router::new().nest("/api/v1", api);
@@ -54,6 +57,8 @@ pub fn build_app(state: AppState) -> Router {
         .route("/", get(web::dashboard))
         .route("/login", get(web::login_page))
         .route("/setup", get(setup::setup_page).post(setup::setup_submit))
+        .route("/articles", get(web_article::article_list_page))
+        .route("/articles/:articleId", get(web_article::article_page))
         .with_state(state.clone());
 
     let static_routes = Router::new()
@@ -96,6 +101,7 @@ pub fn build_app(state: AppState) -> Router {
         feed::export_opml,
         article::list_articles,
         article::get_article,
+        media::get_media,
         health::health_check,
     ),
     components(schemas(

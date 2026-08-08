@@ -10,11 +10,14 @@ use tokio::time;
 
 use crate::errors::{AppError, Result};
 use crate::models::ArticleInput;
+use crate::services::{CleanerService, MediaService};
 
 #[derive(Clone)]
 pub struct CrawlerService {
     pool: SqlitePool,
     client: Client,
+    cleaner: CleanerService,
+    media: MediaService,
 }
 
 pub struct FeedRow {
@@ -29,13 +32,17 @@ const POLITENESS_MS: u64 = 500;
 const DAILY_MS: i64 = 24 * 60 * 60 * 1000;
 
 impl CrawlerService {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(
+        pool: SqlitePool,
+        client: Client,
+        cleaner: CleanerService,
+        media: MediaService,
+    ) -> Self {
         Self {
             pool,
-            client: Client::builder()
-                .timeout(Duration::from_secs(30))
-                .build()
-                .expect("build http client"),
+            client,
+            cleaner,
+            media,
         }
     }
 
@@ -211,8 +218,36 @@ impl CrawlerService {
     }
 
     async fn upsert_article(&self, feed_id: i64, input: ArticleInput, now_ms: i64) -> Result<()> {
-        let markdown = input.summary.clone().unwrap_or_default();
-        let raw_html = input.content_html;
+        let feed_html = input
+            .content_html
+            .clone()
+            .or_else(|| input.summary.clone().map(|s| format!("<p>{}</p>", s)))
+            .unwrap_or_default();
+
+        let cleaned = match self
+            .cleaner
+            .clean_with_fallback(&input.url, feed_html)
+            .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!("content cleaning failed for {}: {}", input.url, e);
+                self.cleaner
+                    .clean(&input.summary.clone().unwrap_or_default())?
+            }
+        };
+
+        let markdown = match self
+            .media
+            .rewrite_markdown(&cleaned.markdown, &input.url)
+            .await
+        {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::warn!("media rewrite failed for {}: {}", input.url, e);
+                cleaned.markdown
+            }
+        };
 
         let article_id = sqlx::query!(
             r#"
@@ -230,7 +265,7 @@ impl CrawlerService {
             input.url,
             input.title,
             input.summary,
-            raw_html,
+            cleaned.raw_html,
             markdown,
             input.published_at,
             now_ms,
@@ -420,7 +455,10 @@ fn parse_rss(bytes: &[u8], feed_url: &str, final_url: &Url) -> Result<Vec<Articl
         let url = resolve_url(&url, &base_url);
         let title = item.title().unwrap_or("Untitled").to_string();
         let summary = item.description().map(|s| s.to_string());
-        let content_html = item.content().map(|s| s.to_string());
+        let content_html = item
+            .content()
+            .map(|s| s.to_string())
+            .or_else(|| summary.clone());
         let published_at = item
             .pub_date()
             .and_then(|d| chrono::DateTime::parse_from_rfc2822(d).ok())

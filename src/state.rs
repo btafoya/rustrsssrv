@@ -3,7 +3,10 @@ use std::sync::Arc;
 use sqlx::SqlitePool;
 
 use crate::config::Config;
-use crate::services::{ArticleService, AuthService, CrawlerService, FeedService, UserService};
+use crate::services::{
+    ArticleService, AuthService, CleanerService, CrawlerService, FeedService, MediaService,
+    UserService,
+};
 
 pub struct AppStateInner {
     pub config: Config,
@@ -13,19 +16,26 @@ pub struct AppStateInner {
     pub feeds: FeedService,
     pub articles: ArticleService,
     pub crawler: CrawlerService,
+    pub cleaner: CleanerService,
+    pub media: MediaService,
 }
 
 pub type AppState = Arc<AppStateInner>;
 
 impl AppStateInner {
     pub fn new(config: Config, pool: SqlitePool) -> Self {
-        let crawler = CrawlerService::new(pool.clone());
+        let client = reqwest::Client::new();
+        let cleaner = CleanerService::new(client.clone());
+        let media = MediaService::new(pool.clone(), client.clone());
+        let crawler = CrawlerService::new(pool.clone(), client, cleaner.clone(), media.clone());
         Self {
             auth: AuthService::new(pool.clone(), config.jwt_secret.clone()),
             users: UserService::new(pool.clone()),
             feeds: FeedService::new(pool.clone(), crawler.clone()),
             articles: ArticleService::new(pool.clone()),
             crawler,
+            cleaner,
+            media,
             pool,
             config,
         }

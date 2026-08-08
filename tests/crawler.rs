@@ -5,6 +5,8 @@ use std::net::SocketAddr;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
+use rustrsssrv::services::CleanerService;
+use rustrsssrv::services::MediaService;
 use rustrsssrv::services::crawler::{CrawlerService, FeedRow};
 use serde_json::json;
 use tower::ServiceExt;
@@ -49,6 +51,13 @@ async fn login(app: &axum::Router, email: &str, password: &str) -> String {
     let bytes = res.into_body().collect().await.unwrap().to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     json["access_token"].as_str().unwrap().to_string()
+}
+
+fn make_crawler(pool: &sqlx::SqlitePool) -> CrawlerService {
+    let client = reqwest::Client::new();
+    let cleaner = CleanerService::new(client.clone());
+    let media = MediaService::new(pool.clone(), client.clone());
+    CrawlerService::new(pool.clone(), client, cleaner, media)
 }
 
 fn auth_request(token: &str, method: &str, uri: &str, body: Body) -> Request<Body> {
@@ -120,7 +129,7 @@ async fn fetch_rss_feed_stores_articles_and_read_states() {
     let feed_id = created["id"].as_i64().unwrap();
 
     // Trigger the fetch synchronously for the test.
-    let crawler = CrawlerService::new(pool.clone());
+    let crawler = make_crawler(&pool);
     crawler
         .fetch_feed(FeedRow {
             id: feed_id,
@@ -209,7 +218,7 @@ async fn duplicate_article_url_upserts_existing_row() {
     let created: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     let feed_id = created["id"].as_i64().unwrap();
 
-    let crawler = CrawlerService::new(pool.clone());
+    let crawler = make_crawler(&pool);
     crawler
         .fetch_feed(FeedRow {
             id: feed_id,

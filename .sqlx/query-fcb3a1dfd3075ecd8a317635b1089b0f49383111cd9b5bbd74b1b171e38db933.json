@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT mime_type, data FROM media WHERE content_hash = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "mime_type",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "data",
+        "ordinal": 1,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "fcb3a1dfd3075ecd8a317635b1089b0f49383111cd9b5bbd74b1b171e38db933"
+}

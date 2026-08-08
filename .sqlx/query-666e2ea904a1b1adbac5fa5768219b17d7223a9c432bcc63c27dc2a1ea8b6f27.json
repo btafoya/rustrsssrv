@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT OR IGNORE INTO media (content_hash, origin_url, mime_type, size_bytes, data)\n            VALUES (?, ?, ?, ?, ?)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "666e2ea904a1b1adbac5fa5768219b17d7223a9c432bcc63c27dc2a1ea8b6f27"
+}
