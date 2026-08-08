@@ -31,18 +31,14 @@ git clone https://github.com/btafoya/rustrsssrv.git
 cd rustrsssrv
 ```
 
-2. Install npm dependencies and build the CSS assets:
+2. Install npm dependencies and build everything:
 
 ```bash
 npm install
-npm run build
+npm run build:all
 ```
 
-3. Build the server in release mode:
-
-```bash
-cargo build --release
-```
+This compiles the Tailwind CSS assets and then builds the release binary.
 
 The compiled binary will be at `target/release/rustrsssrv`.
 
@@ -157,6 +153,8 @@ Install npm dependencies and build assets before running or testing:
 npm install
 npm run build
 ```
+
+Or build both the assets and the release binary at once with `npm run build:all`.
 
 Run the test suite:
 
