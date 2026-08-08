@@ -57,6 +57,30 @@ fn auth_request(token: &str, uri: &str) -> Request<Body> {
 }
 
 #[tokio::test]
+async fn static_css_serves_real_stylesheet() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri("/static/css/tailadmin.css")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(
+        res.headers().get("content-type").unwrap().to_str().unwrap(),
+        "text/css"
+    );
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let body = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(!body.contains("<!DOCTYPE html>"));
+    assert!(body.contains("tailwind") || body.contains("--tw") || body.contains(".bg-blue-600"));
+}
+
+#[tokio::test]
 async fn web_dashboard_redirects_to_setup_when_no_users() {
     let (app, _pool, _dir) = common::app_with_db().await;
     let res = app
