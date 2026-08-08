@@ -13,7 +13,7 @@ use axum::Router;
 use axum::extract::FromRequestParts;
 use axum::http::header::AUTHORIZATION;
 use axum::http::{StatusCode, request::Parts};
-use axum::response::{Html, IntoResponse};
+use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
@@ -185,6 +185,32 @@ where
         Ok(AuthUser(claims.sub))
     }
 }
+
+pub struct WebError(pub AppError);
+
+impl From<AppError> for WebError {
+    fn from(err: AppError) -> Self {
+        Self(err)
+    }
+}
+
+impl IntoResponse for WebError {
+    fn into_response(self) -> Response {
+        match self.0 {
+            AppError::Unauthorized => Redirect::to("/login").into_response(),
+            AppError::NotFound | AppError::Database(sqlx::Error::RowNotFound) => {
+                (StatusCode::NOT_FOUND, Html("<h1>Not Found</h1>")).into_response()
+            }
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Html("<h1>Internal Server Error</h1>"),
+            )
+                .into_response(),
+        }
+    }
+}
+
+pub type WebResult<T> = std::result::Result<T, WebError>;
 
 pub async fn not_found() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, Html("<h1>Not Found</h1>"))

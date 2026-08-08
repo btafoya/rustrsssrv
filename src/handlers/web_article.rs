@@ -4,8 +4,8 @@ use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use comrak::{Options, markdown_to_html};
 
-use crate::errors::{AppError, Result};
-use crate::handlers::AuthUser;
+use crate::errors::AppError;
+use crate::handlers::{AuthUser, WebResult};
 use crate::models::ListArticlesQuery;
 use crate::state::AppState;
 
@@ -41,7 +41,7 @@ pub async fn article_page(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
     Path(article_id): Path<i64>,
-) -> Result<Response> {
+) -> WebResult<Response> {
     let article = state.articles.get(user_id, article_id).await?;
     let html_content = markdown_to_html(&article.markdown_content, &Options::default());
     let published_at = article.published_at.map(|d| d.to_rfc2822());
@@ -65,7 +65,7 @@ pub async fn article_list_page(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
     Query(mut params): Query<ListArticlesQuery>,
-) -> Result<Response> {
+) -> WebResult<Response> {
     let user = state.users.get_by_id(user_id).await?;
 
     if params.is_read.is_none() {

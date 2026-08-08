@@ -2,8 +2,8 @@ use askama::Template;
 use axum::extract::{Query, State};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 
-use crate::errors::{AppError, Result};
-use crate::handlers::AuthUser;
+use crate::errors::AppError;
+use crate::handlers::{AuthUser, WebError, WebResult};
 use crate::models::ListArticlesQuery;
 use crate::state::AppState;
 
@@ -71,8 +71,8 @@ pub async fn login_page() -> impl IntoResponse {
 pub async fn dashboard(
     State(state): State<AppState>,
     auth_user: Option<AuthUser>,
-) -> Result<Response> {
-    let user_count = state.users.count().await?;
+) -> WebResult<Response> {
+    let user_count = state.users.count().await.map_err(WebError)?;
     if user_count == 0 {
         return Ok(Redirect::to("/setup").into_response());
     }
@@ -127,8 +127,8 @@ pub async fn dashboard(
 pub async fn feeds_page(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
-) -> Result<Response> {
-    let page = state.feeds.list(user_id, None, 1000).await?;
+) -> WebResult<Response> {
+    let page = state.feeds.list(user_id, None, 1000).await.map_err(WebError)?;
     let tpl = FeedsTemplate { feeds: page.items };
     Ok(Html(
         tpl.render()
@@ -141,7 +141,7 @@ pub async fn search_page(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
     Query(query): Query<SearchWebQuery>,
-) -> Result<Response> {
+) -> WebResult<Response> {
     let q = query.q.as_deref().unwrap_or("").trim();
     let items = if q.is_empty() {
         Vec::new()
@@ -177,7 +177,7 @@ pub async fn search_page(
 pub async fn settings_page(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
-) -> Result<Response> {
+) -> WebResult<Response> {
     let user = state.users.get_by_id(user_id).await?;
     let tpl = SettingsTemplate {
         email: user.email,

@@ -68,7 +68,7 @@ async fn web_dashboard_redirects_to_setup_when_no_users() {
 }
 
 #[tokio::test]
-async fn web_dashboard_requires_auth_after_setup() {
+async fn web_dashboard_redirects_to_login_after_setup_when_unauthenticated() {
     let (app, _pool, _dir) = common::app_with_db().await;
     create_user(&app, "web@example.com", "Password123!").await;
 
@@ -76,7 +76,8 @@ async fn web_dashboard_requires_auth_after_setup() {
         .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+    assert_eq!(res.headers().get("location").unwrap(), "/login");
 }
 
 #[tokio::test]

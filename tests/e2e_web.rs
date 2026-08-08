@@ -102,10 +102,11 @@ async fn e2e_setup_login_dashboard_logout() {
     assert!(clear_cookie.contains("access_token="));
     assert!(clear_cookie.contains("Max-Age=0"));
 
-    // GET / without a valid cookie is unauthorized again.
+    // GET / without a valid cookie redirects to /login again.
     let res = app
         .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+    assert_eq!(res.headers().get("location").unwrap(), "/login");
 }
