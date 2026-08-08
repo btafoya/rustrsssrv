@@ -19,7 +19,6 @@ Rust RSS Server is a personal feed aggregator that fetches, stores, and serves R
 ## Requirements
 
 - [Rust](https://www.rust-lang.org) 1.88 or later
-- [sqlx-cli](https://github.com/launchbadge/sqlx/tree/main/sqlx-cli) for running migrations
 - A free port for the HTTP server (default `9119`)
 
 ## Installation
@@ -31,13 +30,7 @@ git clone https://github.com/btafoya/rustrsssrv.git
 cd rustrsssrv
 ```
 
-2. Install the SQLx CLI if you do not already have it:
-
-```bash
-cargo install sqlx-cli --no-default-features --features native-tls,sqlite
-```
-
-3. Build the server in release mode:
+2. Build the server in release mode:
 
 ```bash
 cargo build --release
@@ -68,18 +61,6 @@ ENABLE_CRAWLER=true
 LOG_DIR=./logs
 RUST_LOG=info
 ```
-
-## Database Setup
-
-Create the database file and apply migrations before starting the server:
-
-```bash
-export DATABASE_URL=sqlite:./data/rustrsssrv.db
-cargo sqlx database create
-cargo sqlx migrate run
-```
-
-The application creates the database directory automatically when it starts if `ENABLE_CRAWLER` is set, but migrations must be applied first.
 
 ## Running the Server
 
