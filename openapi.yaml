@@ -1,0 +1,634 @@
+openapi: 3.0.3
+info:
+  title: Rust RSS Server API
+  version: 1.0.0
+  description: REST API for the self-hosted Rust RSS aggregator.
+servers:
+  - url: /api/v1
+security:
+  - BearerAuth: []
+paths:
+  /auth/login:
+    post:
+      summary: Log in and obtain tokens
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: New access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          description: Invalid or expired refresh token
+  /auth/logout:
+    post:
+      summary: Revoke refresh token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '204':
+          description: Token revoked
+  /users/me:
+    get:
+      summary: Get current user
+      tags: [Users]
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      summary: Update current user
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    delete:
+      summary: Delete current user
+      tags: [Users]
+      responses:
+        '204':
+          description: User deleted
+  /feeds:
+    get:
+      summary: List subscribed feeds
+      tags: [Feeds]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Paginated feed list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPage'
+    post:
+      summary: Subscribe to a feed
+      tags: [Feeds]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFeedRequest'
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+        '409':
+          description: Already subscribed
+  /feeds/discover:
+    post:
+      summary: Discover feed URLs on a website
+      tags: [Feeds]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoverRequest'
+      responses:
+        '200':
+          description: Candidate feeds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverResponse'
+  /feeds/import/opml:
+    post:
+      summary: Import subscriptions from OPML
+      tags: [Feeds]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+  /feeds/export/opml:
+    get:
+      summary: Export subscriptions to OPML
+      tags: [Feeds]
+      responses:
+        '200':
+          description: OPML document
+          content:
+            application/xml:
+              schema:
+                type: string
+  /feeds/{feedId}:
+    parameters:
+      - name: feedId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      summary: Get feed details
+      tags: [Feeds]
+      responses:
+        '200':
+          description: Feed details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+    patch:
+      summary: Update feed settings
+      tags: [Feeds]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedUpdate'
+      responses:
+        '200':
+          description: Updated feed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+    delete:
+      summary: Unsubscribe from feed
+      tags: [Feeds]
+      responses:
+        '204':
+          description: Unsubscribed
+  /feeds/{feedId}/refresh:
+    parameters:
+      - name: feedId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      summary: Manually refresh a feed
+      tags: [Feeds]
+      responses:
+        '202':
+          description: Refresh accepted
+  /articles:
+    get:
+      summary: List articles
+      tags: [Articles]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: feed_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: is_read
+          in: query
+          schema:
+            type: boolean
+        - name: is_starred
+          in: query
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [oldest_first, newest_first]
+            default: oldest_first
+      responses:
+        '200':
+          description: Paginated article list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlePage'
+  /articles/{articleId}:
+    parameters:
+      - name: articleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      summary: Get a single article
+      tags: [Articles]
+      responses:
+        '200':
+          description: Article
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+  /articles/{articleId}/read:
+    parameters:
+      - name: articleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      summary: Mark article as read
+      tags: [Articles]
+      responses:
+        '204':
+          description: Marked read
+  /articles/{articleId}/unread:
+    parameters:
+      - name: articleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      summary: Mark article as unread
+      tags: [Articles]
+      responses:
+        '204':
+          description: Marked unread
+  /articles/{articleId}/star:
+    parameters:
+      - name: articleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      summary: Star article
+      tags: [Articles]
+      responses:
+        '204':
+          description: Starred
+  /articles/{articleId}/unstar:
+    parameters:
+      - name: articleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      summary: Unstar article
+      tags: [Articles]
+      responses:
+        '204':
+          description: Unstarred
+  /search:
+    get:
+      summary: Search articles
+      tags: [Search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlePage'
+  /media/{contentHash}:
+    parameters:
+      - name: contentHash
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Stream proxied media
+      tags: [Media]
+      responses:
+        '200':
+          description: Media stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Server and database are healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service unavailable (database not reachable)
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: integer
+        format: int64
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    LoginResponse:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+    RefreshResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+    User:
+      type: object
+      required: [id, email, timezone, default_filter, default_sort_order, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+        timezone:
+          type: string
+        default_filter:
+          type: string
+          enum: [all, unread]
+        default_sort_order:
+          type: string
+          enum: [oldest_first, newest_first]
+        created_at:
+          type: string
+          format: date-time
+    UserUpdate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        timezone:
+          type: string
+        default_filter:
+          type: string
+          enum: [all, unread]
+        default_sort_order:
+          type: string
+          enum: [oldest_first, newest_first]
+    Feed:
+      type: object
+      required: [id, url, title, fetch_interval_minutes, next_fetch_at, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        url:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        site_url:
+          type: string
+        fetch_interval_minutes:
+          type: integer
+        last_fetched_at:
+          type: string
+          format: date-time
+        next_fetch_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ok, error, backoff]
+        created_at:
+          type: string
+          format: date-time
+    FeedPage:
+      type: object
+      required: [items, has_more]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Feed'
+        next_cursor:
+          type: integer
+          format: int64
+          nullable: true
+        has_more:
+          type: boolean
+    CreateFeedRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+    FeedUpdate:
+      type: object
+      properties:
+        fetch_interval_minutes:
+          type: integer
+          enum: [5, 15, 30, 60, 120, 240, 720, 1440]
+    DiscoverRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+    DiscoverResponse:
+      type: object
+      required: [feeds]
+      properties:
+        feeds:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoveredFeed'
+    DiscoveredFeed:
+      type: object
+      required: [url, title]
+      properties:
+        url:
+          type: string
+        title:
+          type: string
+        mime_type:
+          type: string
+    ImportResult:
+      type: object
+      required: [imported, failed]
+      properties:
+        imported:
+          type: integer
+        failed:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+    Article:
+      type: object
+      required: [id, feed_id, feed_title, url, title, markdown_content, published_at, fetched_at, is_read, is_starred]
+      properties:
+        id:
+          type: integer
+          format: int64
+        feed_id:
+          type: integer
+          format: int64
+        feed_title:
+          type: string
+        url:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        markdown_content:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        fetched_at:
+          type: string
+          format: date-time
+        is_read:
+          type: boolean
+        is_starred:
+          type: boolean
+    ArticlePage:
+      type: object
+      required: [items, has_more]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Article'
+        next_cursor:
+          type: integer
+          format: int64
+          nullable: true
+        has_more:
+          type: boolean
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+        database:
+          type: string
+          enum: [ok, error]

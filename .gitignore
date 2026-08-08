@@ -1,0 +1,13 @@
+/target
+/data
+/logs
+.env
+*.db
+*.db-shm
+*.db-wal
+node_modules
+/assets/dist
+/assets/node_modules
+.DS_Store
+.claude/
+.codegraph/

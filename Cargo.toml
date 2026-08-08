@@ -1,0 +1,51 @@
+[package]
+name = "rustrsssrv"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+[dependencies]
+askama = "0.12"
+atom_syndication = "0.12"
+axum = { version = "0.7", features = ["macros"] }
+bcrypt = "0.15"
+blake3 = "1"
+chrono = { version = "0.4", features = ["serde"] }
+comrak = "0.29"
+dotenvy = "0.15"
+html-to-markdown-rs = "3"
+jsonwebtoken = "9"
+opml = "1"
+quick-xml = "0.36"
+readability-rs = "0.5"
+reqwest = { version = "0.12", features = ["json"] }
+regex = "1"
+rss = "2"
+scraper = "0.27"
+rust-embed = "8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate", "chrono", "uuid"] }
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "fs", "compression-gzip", "limit"] }
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+utoipa = { version = "5", features = ["axum_extras", "chrono"] }
+utoipa-swagger-ui = { version = "8", features = ["axum"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+validator = { version = "0.18", features = ["derive"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+hyper = { version = "1", features = ["full"] }
+http-body-util = "0.1"
+tempfile = "3"
+urlencoding = "2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
