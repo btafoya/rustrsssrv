@@ -1,36 +1,29 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Articles — Rust RSS Server</title>
-    <link rel="stylesheet" href="/static/css/tailadmin.css">
-</head>
-<body class="bg-gray-100">
-    <div class="max-w-3xl mx-auto p-8">
-        <h1 class="text-2xl font-bold mb-6">Articles</h1>
-        <div class="space-y-4">
-            {% for item in items %}
-            <a href="/articles/{{ item.id }}" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <h2 class="text-xl font-semibold {% if !item.is_read %}text-blue-700{% endif %}">{{ item.title }}</h2>
-                        {% if let Some(summary) = item.summary %}
-                        <p class="mt-2 text-gray-700 line-clamp-2">{{ summary }}</p>
-                        {% endif %}
-                        <div class="mt-2 text-sm text-gray-500">
-                            {% if let Some(feed_title) = item.feed_title %}
-                            <span>{{ feed_title }}</span>
-                            {% endif %}
-                            {% if let Some(published_at) = item.published_at %}
-                            <span class="ml-2">{{ published_at }}</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Articles — Rust RSS Server{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Articles</h1>
+    <form method="GET" action="/articles" class="flex items-center space-x-2">
+        <select name="is_read" class="border rounded px-2 py-1">
+            <option value="" {% if filter == "all" %}selected{% endif %}>All</option>
+            <option value="false" {% if filter == "unread" %}selected{% endif %}>Unread</option>
+            <option value="true" {% if filter == "read" %}selected{% endif %}>Read</option>
+        </select>
+        <select name="sort" class="border rounded px-2 py-1">
+            <option value="oldest_first" {% if sort == "oldest_first" %}selected{% endif %}>Oldest first</option>
+            <option value="newest_first" {% if sort == "newest_first" %}selected{% endif %}>Newest first</option>
+        </select>
+        <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Apply</button>
+    </form>
+</div>
+
+{% include "article_list_partial.html" %}
+
+{% if let Some(cursor) = next_cursor %}
+<div class="mt-6">
+    <a href="/articles?is_read={{ filter }}&sort={{ sort }}&cursor={{ cursor }}" class="text-blue-600 hover:underline">Next →</a>
+</div>
+{% endif %}
+{% endblock %}

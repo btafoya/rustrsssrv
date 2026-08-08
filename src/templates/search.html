@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Search — Rust RSS Server{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Search</h1>
+
+<form method="GET" action="/search" class="mb-6 flex items-center space-x-2">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search articles..." class="flex-1 border rounded px-3 py-2" required>
+    <input type="hidden" name="limit" value="50">
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Search</button>
+</form>
+
+{% include "article_list_partial.html" %}
+{% endblock %}

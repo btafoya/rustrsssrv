@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO read_states (user_id, article_id, is_starred, starred_at, created_at, updated_at)\n            VALUES (?, ?, 1, ?, ?, ?)\n            ON CONFLICT(user_id, article_id) DO UPDATE SET\n                is_starred = 1,\n                starred_at = excluded.starred_at,\n                updated_at = excluded.updated_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "ba37eb0f2c50eea1ab641c04f3d6d908b8cb7ce6d53acad1eec8b6f3d60b7d03"
+}

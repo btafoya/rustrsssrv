@@ -1,30 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} — Rust RSS Server</title>
-    <link rel="stylesheet" href="/static/css/tailadmin.css">
-</head>
-<body class="bg-gray-100">
-    <div class="max-w-3xl mx-auto p-8">
-        <article class="bg-white rounded-lg shadow p-8">
-            <h1 class="text-3xl font-bold mb-2">{{ title }}</h1>
-            <div class="text-sm text-gray-600 mb-6">
-                {% if let Some(feed_title) = feed_title %}
-                <span class="font-medium">{{ feed_title }}</span>
-                {% if published_at.is_some() %}
-                <span class="mx-2">·</span>
-                {% endif %}
-                {% endif %}
-                {% if let Some(published_at) = published_at %}
-                <time>{{ published_at }}</time>
-                {% endif %}
-            </div>
-            <div class="prose max-w-none">
-                {{ html_content|safe }}
-            </div>
-        </article>
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Rust RSS Server{% endblock %}
+
+{% block content %}
+<article class="bg-white rounded-lg shadow p-8">
+    <h1 class="text-3xl font-bold mb-2">{{ title }}</h1>
+    <div class="text-sm text-gray-600 mb-6">
+        {% if let Some(feed_title) = feed_title %}
+        <span class="font-medium">{{ feed_title }}</span>
+        {% if published_at.is_some() %}
+        <span class="mx-2">·</span>
+        {% endif %}
+        {% endif %}
+        {% if let Some(published_at) = published_at %}
+        <time>{{ published_at }}</time>
+        {% endif %}
     </div>
-</body>
-</html>
+    <div class="prose max-w-none">
+        {{ html_content|safe }}
+    </div>
+    <div class="mt-8 flex items-center space-x-4">
+        <a href="{{ url }}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">Open original</a>
+        <a href="/articles" class="text-gray-600 hover:text-gray-900">← Back to articles</a>
+    </div>
+</article>
+{% endblock %}

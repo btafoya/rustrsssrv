@@ -1,11 +1,18 @@
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
+use serde::Deserialize;
 
 use crate::errors::Result;
 use crate::handlers::AuthUser;
 use crate::models::{Article, ArticlePage, ListArticlesQuery};
 use crate::state::AppState;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SearchQuery {
+    pub q: String,
+    pub limit: Option<i64>,
+}
 
 #[utoipa::path(
     get,
@@ -42,4 +49,138 @@ pub async fn get_article(
 ) -> Result<(StatusCode, Json<Article>)> {
     let article = state.articles.get(user_id, article_id).await?;
     Ok((StatusCode::OK, Json(article)))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/articles/{articleId}/read",
+    params(
+        ("articleId" = i64, Path, description = "Article ID"),
+    ),
+    responses(
+        (status = 204, description = "Marked read"),
+        (status = 404, description = "Article not found or not in subscription"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal error"),
+    ),
+    tag = "Articles",
+    security(
+        ("bearer" = [])
+    )
+)]
+pub async fn mark_read(
+    State(state): State<AppState>,
+    Path(article_id): Path<i64>,
+    AuthUser(user_id): AuthUser,
+) -> Result<StatusCode> {
+    state.articles.mark_read(user_id, article_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/articles/{articleId}/unread",
+    params(
+        ("articleId" = i64, Path, description = "Article ID"),
+    ),
+    responses(
+        (status = 204, description = "Marked unread"),
+        (status = 404, description = "Article not found or not in subscription"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal error"),
+    ),
+    tag = "Articles",
+    security(
+        ("bearer" = [])
+    )
+)]
+pub async fn mark_unread(
+    State(state): State<AppState>,
+    Path(article_id): Path<i64>,
+    AuthUser(user_id): AuthUser,
+) -> Result<StatusCode> {
+    state.articles.mark_unread(user_id, article_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/articles/{articleId}/star",
+    params(
+        ("articleId" = i64, Path, description = "Article ID"),
+    ),
+    responses(
+        (status = 204, description = "Marked starred"),
+        (status = 404, description = "Article not found or not in subscription"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal error"),
+    ),
+    tag = "Articles",
+    security(
+        ("bearer" = [])
+    )
+)]
+pub async fn mark_starred(
+    State(state): State<AppState>,
+    Path(article_id): Path<i64>,
+    AuthUser(user_id): AuthUser,
+) -> Result<StatusCode> {
+    state.articles.mark_starred(user_id, article_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/articles/{articleId}/unstar",
+    params(
+        ("articleId" = i64, Path, description = "Article ID"),
+    ),
+    responses(
+        (status = 204, description = "Marked unstarred"),
+        (status = 404, description = "Article not found or not in subscription"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal error"),
+    ),
+    tag = "Articles",
+    security(
+        ("bearer" = [])
+    )
+)]
+pub async fn mark_unstarred(
+    State(state): State<AppState>,
+    Path(article_id): Path<i64>,
+    AuthUser(user_id): AuthUser,
+) -> Result<StatusCode> {
+    state.articles.mark_unstarred(user_id, article_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/search",
+    params(
+        ("q" = String, Query, description = "Search query"),
+        ("limit" = Option<i64>, Query, description = "Max results (1-100, default 20)"),
+    ),
+    responses(
+        (status = 200, description = "Search results", body = ArticlePage),
+        (status = 400, description = "Bad request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal error"),
+    ),
+    tag = "Articles",
+    security(
+        ("bearer" = [])
+    )
+)]
+pub async fn search_articles(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+    Query(query): Query<SearchQuery>,
+) -> Result<(StatusCode, Json<ArticlePage>)> {
+    let page = state
+        .articles
+        .search(user_id, &query.q, query.limit.unwrap_or(20))
+        .await?;
+    Ok((StatusCode::OK, Json(page)))
 }

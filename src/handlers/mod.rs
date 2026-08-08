@@ -48,6 +48,11 @@ pub fn build_app(state: AppState) -> Router {
         .route("/feeds/:feedId/refresh", post(feed::refresh_feed))
         .route("/articles", get(article::list_articles))
         .route("/articles/:articleId", get(article::get_article))
+        .route("/articles/:articleId/read", post(article::mark_read))
+        .route("/articles/:articleId/unread", post(article::mark_unread))
+        .route("/articles/:articleId/star", post(article::mark_starred))
+        .route("/articles/:articleId/unstar", post(article::mark_unstarred))
+        .route("/search", get(article::search_articles))
         .route("/media/:mediaHash", get(media::get_media))
         .with_state(state.clone());
 
@@ -59,6 +64,9 @@ pub fn build_app(state: AppState) -> Router {
         .route("/setup", get(setup::setup_page).post(setup::setup_submit))
         .route("/articles", get(web_article::article_list_page))
         .route("/articles/:articleId", get(web_article::article_page))
+        .route("/feeds", get(web::feeds_page))
+        .route("/search", get(web::search_page))
+        .route("/settings", get(web::settings_page))
         .with_state(state.clone());
 
     let static_routes = Router::new()
@@ -101,6 +109,11 @@ pub fn build_app(state: AppState) -> Router {
         feed::export_opml,
         article::list_articles,
         article::get_article,
+        article::mark_read,
+        article::mark_unread,
+        article::mark_starred,
+        article::mark_unstarred,
+        article::search_articles,
         media::get_media,
         health::health_check,
     ),

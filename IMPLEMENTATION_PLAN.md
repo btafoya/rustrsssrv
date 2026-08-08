@@ -96,3 +96,5 @@ Stages for building the Rust RSS server. Each stage must compile and pass its te
 - Mark articles read/unread/starred and verify filter behavior.
 - Search for a word known to exist in an article title and content.
 - End-to-end smoke test: setup wizard, add feed, fetch articles, render article page.
+
+**Status**: Complete

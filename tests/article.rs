@@ -265,3 +265,253 @@ async fn list_articles_paginates() {
     assert_eq!(page["items"].as_array().unwrap().len(), 1);
     assert!(!page["has_more"].as_bool().unwrap());
 }
+
+async fn insert_article_with_content(
+    pool: &sqlx::SqlitePool,
+    url: &str,
+    title: &str,
+    content: &str,
+    feed_id: i64,
+) -> i64 {
+    let now = chrono::Utc::now().timestamp_millis();
+    let article_id = sqlx::query!(
+        r#"
+        INSERT INTO articles (url, title, markdown_content, fetched_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        RETURNING id
+        "#,
+        url,
+        title,
+        content,
+        now,
+        now
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+    .id;
+
+    sqlx::query!(
+        "INSERT OR IGNORE INTO article_feeds (article_id, feed_id, first_seen_at) VALUES (?, ?, ?)",
+        article_id,
+        feed_id,
+        now
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    sqlx::query!(
+        "INSERT OR IGNORE INTO read_states (user_id, article_id, created_at, updated_at) SELECT user_id, ?, ?, ? FROM subscriptions WHERE feed_id = ?",
+        article_id,
+        now,
+        now,
+        feed_id
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    article_id
+}
+
+#[tokio::test]
+async fn mark_read_and_unread() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "reader@example.com", "Password123!").await;
+    let token = login(&app, "reader@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+    let article_id =
+        insert_article(&pool, "https://example.com/read-post", "Read Post", feed_id).await;
+
+    let uri = format!("/api/v1/articles/{}/read", article_id);
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "POST", &uri, Body::empty()))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            &format!("/api/v1/articles/{}", article_id),
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let article: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(article["is_read"].as_bool().unwrap());
+
+    let uri = format!("/api/v1/articles/{}/unread", article_id);
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "POST", &uri, Body::empty()))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            &format!("/api/v1/articles/{}", article_id),
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let article: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(!article["is_read"].as_bool().unwrap());
+}
+
+#[tokio::test]
+async fn mark_starred_and_unstarred() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "starrer@example.com", "Password123!").await;
+    let token = login(&app, "starrer@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+    let article_id =
+        insert_article(&pool, "https://example.com/star-post", "Star Post", feed_id).await;
+
+    let uri = format!("/api/v1/articles/{}/star", article_id);
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "POST", &uri, Body::empty()))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            &format!("/api/v1/articles/{}", article_id),
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let article: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(article["is_starred"].as_bool().unwrap());
+
+    let uri = format!("/api/v1/articles/{}/unstar", article_id);
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "POST", &uri, Body::empty()))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            &format!("/api/v1/articles/{}", article_id),
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let article: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(!article["is_starred"].as_bool().unwrap());
+}
+
+#[tokio::test]
+async fn mark_read_rejects_unsubscribed_article() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "user@example.com", "Password123!").await;
+    let token = login(&app, "user@example.com", "Password123!").await;
+
+    let other_feed_id = sqlx::query!(
+        "INSERT INTO feeds (url, fetch_interval_minutes, next_fetch_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id",
+        "https://other.example.com/feed.xml",
+        15,
+        0,
+        0,
+        0
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .id;
+    let article_id = insert_article(
+        &pool,
+        "https://other.example.com/post",
+        "Other Post",
+        other_feed_id,
+    )
+    .await;
+
+    let uri = format!("/api/v1/articles/{}/read", article_id);
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "POST", &uri, Body::empty()))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn search_requires_auth() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/search?q=test")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn search_matches_subscribed_articles() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "searcher@example.com", "Password123!").await;
+    let token = login(&app, "searcher@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+
+    let matched_id = insert_article_with_content(
+        &pool,
+        "https://example.com/alpha",
+        "Alpha Post",
+        "unique search term alpha",
+        feed_id,
+    )
+    .await;
+    let _other_id = insert_article_with_content(
+        &pool,
+        "https://example.com/beta",
+        "Beta Post",
+        "something unrelated",
+        feed_id,
+    )
+    .await;
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/api/v1/search?q=alpha&limit=10",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let page: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let items = page["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["id"], matched_id);
+}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — Rust RSS Server{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Settings</h1>
+
+<form id="settings-form" class="bg-white rounded-lg shadow p-6 max-w-lg space-y-4">
+    <div>
+        <label class="block text-sm font-medium mb-1">Email</label>
+        <input type="email" name="email" value="{{ email }}" class="w-full border rounded px-3 py-2">
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">Timezone</label>
+        <input type="text" name="timezone" value="{{ timezone }}" class="w-full border rounded px-3 py-2">
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">Default filter</label>
+        <select name="default_filter" class="w-full border rounded px-3 py-2">
+            <option value="all" {% if default_filter == "all" %}selected{% endif %}>All</option>
+            <option value="unread" {% if default_filter == "unread" %}selected{% endif %}>Unread</option>
+        </select>
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">Default sort</label>
+        <select name="default_sort_order" class="w-full border rounded px-3 py-2">
+            <option value="oldest_first" {% if default_sort_order == "oldest_first" %}selected{% endif %}>Oldest first</option>
+            <option value="newest_first" {% if default_sort_order == "newest_first" %}selected{% endif %}>Newest first</option>
+        </select>
+    </div>
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Save</button>
+</form>
+
+<script>
+    document.getElementById('settings-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const body = {};
+        for (const [key, value] of new FormData(form)) {
+            if (value) body[key] = value;
+        }
+        const token = localStorage.getItem('access_token');
+        const res = await fetch('/api/v1/users/me', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(body)
+        });
+        if (res.ok) {
+            alert('Settings saved');
+            window.location.reload();
+        } else {
+            alert('Failed to save settings');
+        }
+    });
+</script>
+{% endblock %}

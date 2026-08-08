@@ -1,5 +1,5 @@
 use askama::Template;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use comrak::{Options, markdown_to_html};
@@ -13,6 +13,7 @@ use crate::state::AppState;
 #[template(path = "article.html")]
 struct ArticleTemplate {
     title: String,
+    url: String,
     feed_title: Option<String>,
     published_at: Option<String>,
     html_content: String,
@@ -22,6 +23,9 @@ struct ArticleTemplate {
 #[template(path = "article_list.html")]
 struct ArticleListTemplate {
     items: Vec<ArticleRow>,
+    filter: String,
+    sort: String,
+    next_cursor: Option<i64>,
 }
 
 struct ArticleRow {
@@ -44,6 +48,7 @@ pub async fn article_page(
 
     let tpl = ArticleTemplate {
         title: article.title,
+        url: article.url,
         feed_title: article.feed_title,
         published_at,
         html_content,
@@ -59,16 +64,32 @@ pub async fn article_page(
 pub async fn article_list_page(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
+    Query(mut params): Query<ListArticlesQuery>,
 ) -> Result<Response> {
-    let query = ListArticlesQuery {
-        feed_id: None,
-        is_read: Some(false),
-        is_starred: None,
-        sort: None,
-        cursor: None,
-        limit: Some(50),
+    let user = state.users.get_by_id(user_id).await?;
+
+    if params.is_read.is_none() {
+        params.is_read = match user.default_filter.as_str() {
+            "all" => None,
+            _ => Some(false),
+        };
+    }
+    if params.sort.is_none() {
+        params.sort = Some(user.default_sort_order.clone());
+    }
+    if params.limit.is_none() {
+        params.limit = Some(50);
+    }
+
+    let page = state.articles.list(user_id, params.clone()).await?;
+
+    let filter = match params.is_read {
+        None => "all".to_string(),
+        Some(true) => "read".to_string(),
+        Some(false) => "unread".to_string(),
     };
-    let page = state.articles.list(user_id, query).await?;
+    let sort = params.sort.unwrap_or_else(|| "oldest_first".to_string());
+
     let rows: Vec<ArticleRow> = page
         .items
         .into_iter()
@@ -82,7 +103,12 @@ pub async fn article_list_page(
         })
         .collect();
 
-    let tpl = ArticleListTemplate { items: rows };
+    let tpl = ArticleListTemplate {
+        items: rows,
+        filter,
+        sort,
+        next_cursor: page.next_cursor,
+    };
     Ok(Html(
         tpl.render()
             .map_err(|e| AppError::Internal(e.to_string()))?,

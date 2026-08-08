@@ -1,0 +1,24 @@
+<div class="space-y-4">
+    {% for item in items %}
+    <a href="/articles/{{ item.id }}" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition">
+        <div class="flex items-start justify-between">
+            <div>
+                <h2 class="text-xl font-semibold {% if !item.is_read %}text-blue-700{% endif %}">{{ item.title }}</h2>
+                {% if let Some(summary) = item.summary %}
+                <p class="mt-2 text-gray-700 line-clamp-2">{{ summary }}</p>
+                {% endif %}
+                <div class="mt-2 text-sm text-gray-500">
+                    {% if let Some(feed_title) = item.feed_title %}
+                    <span>{{ feed_title }}</span>
+                    {% endif %}
+                    {% if let Some(published_at) = item.published_at %}
+                    <span class="ml-2">{{ published_at }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </a>
+    {% else %}
+    <p class="text-gray-500">No articles found.</p>
+    {% endfor %}
+</div>

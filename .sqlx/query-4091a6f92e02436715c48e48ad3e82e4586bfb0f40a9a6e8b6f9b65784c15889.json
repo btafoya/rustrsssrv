@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT a.id as \"id!\", MIN(af.feed_id) as \"feed_id!: i64\"\n            FROM articles a\n            JOIN article_feeds af ON af.article_id = a.id\n            JOIN subscriptions s ON s.feed_id = af.feed_id AND s.user_id = ?\n            WHERE a.id = ?\n            GROUP BY a.id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "feed_id!: i64",
+        "ordinal": 1,
+        "type_info": "Null"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "4091a6f92e02436715c48e48ad3e82e4586bfb0f40a9a6e8b6f9b65784c15889"
+}

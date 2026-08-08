@@ -1,15 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard — Rust RSS Server</title>
-    <link rel="stylesheet" href="/static/css/tailadmin.css">
-</head>
-<body class="bg-gray-100">
-    <div class="p-8">
-        <h1 class="text-2xl font-bold">Dashboard</h1>
-        <p class="mt-4">User ID: {{ user_id }}</p>
-    </div>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Rust RSS Server{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Dashboard</h1>
+    <span class="text-sm text-gray-500">{{ email }} · {{ timezone }}</span>
+</div>
+
+<p class="mb-4 text-gray-700">
+    {{ unread_count }} unread article{% if unread_count != 1 %}s{% endif %} across {{ feed_count }} feed{% if feed_count != 1 %}s{% endif %}.
+</p>
+
+<div class="flex items-center space-x-4 mb-6">
+    <a href="/articles" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Read articles</a>
+    <a href="/feeds" class="bg-white border px-4 py-2 rounded hover:bg-gray-50">Manage feeds</a>
+</div>
+
+<h2 class="text-xl font-semibold mb-4">Recent unread</h2>
+{% include "article_list_partial.html" %}
+{% endblock %}
