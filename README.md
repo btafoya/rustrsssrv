@@ -19,6 +19,7 @@ Rust RSS Server is a personal feed aggregator that fetches, stores, and serves R
 ## Requirements
 
 - [Rust](https://www.rust-lang.org) 1.88 or later
+- [Node.js](https://nodejs.org) and npm (for Tailwind CSS asset generation)
 - A free port for the HTTP server (default `9119`)
 
 ## Installation
@@ -30,7 +31,14 @@ git clone https://github.com/btafoya/rustrsssrv.git
 cd rustrsssrv
 ```
 
-2. Build the server in release mode:
+2. Install npm dependencies and build the CSS assets:
+
+```bash
+npm install
+npm run build
+```
+
+3. Build the server in release mode:
 
 ```bash
 cargo build --release
@@ -142,6 +150,13 @@ curl "http://localhost:9119/api/v1/search?q=rust&limit=10" \
 The in-process crawler polls subscribed feeds every 15 minutes by default. Feed-specific intervals can be set to `5`, `15`, `30`, `60`, `120`, `240`, `720`, or `1440` minutes. Enable the crawler with `ENABLE_CRAWLER=true`. Without it, the server serves stored articles but does not fetch new content.
 
 ## Development
+
+Install npm dependencies and build assets before running or testing:
+
+```bash
+npm install
+npm run build
+```
 
 Run the test suite:
 
