@@ -1,10 +1,21 @@
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{StatusCode, header};
+use axum::response::IntoResponse;
 
 use crate::errors::Result;
 use crate::models::{LoginRequest, RefreshRequest};
 use crate::state::AppState;
+
+const ACCESS_TOKEN_MAX_AGE: i64 = 7 * 24 * 60 * 60;
+
+fn access_token_cookie(token: &str, max_age: i64) -> String {
+    format!("access_token={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age={max_age}")
+}
+
+fn clear_access_token_cookie() -> String {
+    "access_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0".to_string()
+}
 
 #[utoipa::path(
     post,
@@ -18,9 +29,10 @@ use crate::state::AppState;
 pub async fn login(
     State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
-) -> Result<Json<crate::models::LoginResponse>> {
+) -> Result<impl IntoResponse> {
     let resp = state.auth.login(req).await?;
-    Ok(Json(resp))
+    let cookie = access_token_cookie(&resp.access_token, ACCESS_TOKEN_MAX_AGE);
+    Ok(([(header::SET_COOKIE, cookie)], Json(resp)))
 }
 
 #[utoipa::path(
@@ -49,7 +61,10 @@ pub async fn refresh(
 pub async fn logout(
     State(state): State<AppState>,
     Json(req): Json<RefreshRequest>,
-) -> Result<StatusCode> {
+) -> Result<impl IntoResponse> {
     state.auth.logout(req).await?;
-    Ok(StatusCode::NO_CONTENT)
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(header::SET_COOKIE, clear_access_token_cookie())],
+    ))
 }

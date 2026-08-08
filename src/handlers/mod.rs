@@ -154,18 +154,34 @@ where
         parts: &mut Parts,
         state: &S,
     ) -> std::result::Result<Self, Self::Rejection> {
-        let header = parts
+        let token = parts
             .headers
             .get(AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
-            .ok_or(AppError::Unauthorized)?;
+            .and_then(|header| {
+                header
+                    .strip_prefix("Bearer ")
+                    .or_else(|| header.strip_prefix("bearer "))
+            })
+            .map(|t| t.to_string())
+            .or_else(|| {
+                parts
+                    .headers
+                    .get(axum::http::header::COOKIE)
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|cookies| {
+                        cookies.split(';').find_map(|cookie| {
+                            let mut kv = cookie.trim().splitn(2, '=');
+                            match (kv.next(), kv.next()) {
+                                (Some("access_token"), Some(value)) => Some(value.to_string()),
+                                _ => None,
+                            }
+                        })
+                    })
+            });
 
-        let token = header
-            .strip_prefix("Bearer ")
-            .or_else(|| header.strip_prefix("bearer "))
-            .ok_or(AppError::Unauthorized)?;
-
-        let claims = state.as_ref().auth.validate_access_token(token)?;
+        let token = token.ok_or(AppError::Unauthorized)?;
+        let claims = state.as_ref().auth.validate_access_token(&token)?;
         Ok(AuthUser(claims.sub))
     }
 }

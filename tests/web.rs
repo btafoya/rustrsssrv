@@ -97,6 +97,51 @@ async fn web_dashboard_renders() {
 }
 
 #[tokio::test]
+async fn web_dashboard_renders_with_login_cookie() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "cookie@example.com", "Password123!").await;
+
+    let body = json!({"email": "cookie@example.com", "password": "Password123!"});
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/auth/login")
+                .header("Content-Type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let cookie = res
+        .headers()
+        .get("set-cookie")
+        .expect("set-cookie header")
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(cookie.starts_with("access_token="));
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/")
+                .header("Cookie", cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("Dashboard"));
+}
+
+#[tokio::test]
 async fn web_articles_renders() {
     let (app, _pool, _dir) = common::app_with_db().await;
     create_user(&app, "web@example.com", "Password123!").await;
