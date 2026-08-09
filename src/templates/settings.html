@@ -12,7 +12,7 @@
     </div>
     <div>
         <label class="block text-sm font-medium mb-1">Timezone</label>
-        <input type="text" name="timezone" value="{{ timezone }}" class="w-full border rounded px-3 py-2">
+        <select name="timezone" id="timezone-select" class="w-full border rounded px-3 py-2"></select>
     </div>
     <div>
         <label class="block text-sm font-medium mb-1">Default filter</label>
@@ -34,6 +34,20 @@
 </form>
 
 <script>
+    const tzSelect = document.getElementById('timezone-select');
+    if (tzSelect) {
+        const savedTz = "{{ timezone }}";
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const zones = Intl.supportedValuesOf('timeZone');
+        for (const zone of zones) {
+            const option = document.createElement('option');
+            option.value = zone;
+            option.textContent = zone;
+            tzSelect.appendChild(option);
+        }
+        tzSelect.value = savedTz && zones.includes(savedTz) ? savedTz : browserTz;
+    }
+
     document.getElementById('settings-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const form = e.target;
