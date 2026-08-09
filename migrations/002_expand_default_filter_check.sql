@@ -1,4 +1,6 @@
 -- SQLite requires recreating the table to broaden a CHECK constraint.
+-- Run outside a transaction so PRAGMA foreign_keys actually takes effect.
+-- no transaction
 PRAGMA foreign_keys = OFF;
 
 CREATE TABLE users_new (
