@@ -39,9 +39,11 @@ impl FeedService {
         let feed_id = match self.find_feed_by_url(&req.url).await? {
             Some(id) => id,
             None => {
+                let title = self.fetch_feed_title(&req.url).await.ok().flatten();
                 sqlx::query!(
-                    "INSERT INTO feeds (url, fetch_interval_minutes, next_fetch_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO feeds (url, title, fetch_interval_minutes, next_fetch_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
                     req.url,
+                    title,
                     15,
                     millis,
                     millis,
@@ -402,7 +404,10 @@ impl FeedService {
         let feed_id = match self.find_feed_by_url(url).await? {
             Some(id) => id,
             None => {
-                let title = title.map(|s| s.to_string());
+                let mut title = title.filter(|s| !s.is_empty()).map(|s| s.to_string());
+                if title.is_none() {
+                    title = self.fetch_feed_title(url).await.ok().flatten();
+                }
                 sqlx::query!(
                     "INSERT INTO feeds (url, title, fetch_interval_minutes, next_fetch_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
                     url,

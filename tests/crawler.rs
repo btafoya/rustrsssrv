@@ -187,6 +187,17 @@ async fn fetch_rss_feed_stores_articles_and_read_states() {
     .await
     .unwrap();
     assert_eq!(read.found, 1);
+
+    let feed = sqlx::query!(
+        "SELECT title, description, site_url FROM feeds WHERE id = ?",
+        feed_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(feed.title.as_deref(), Some("Example"));
+    assert_eq!(feed.description.as_deref(), Some("An example feed"));
+    assert_eq!(feed.site_url.as_deref(), Some("https://example.com"));
 }
 
 #[tokio::test]
@@ -341,4 +352,44 @@ async fn fetch_empty_body_records_failure() {
     .unwrap();
     assert_eq!(log.status, "error");
     assert_eq!(log.error_message.as_deref(), Some("empty response body"));
+}
+
+#[tokio::test]
+async fn create_feed_fetches_title_synchronously() {
+    let rss = r#"<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example</title>
+    <link>https://example.com</link>
+    <item>
+      <title>First Post</title>
+      <link>https://example.com/first</link>
+    </item>
+  </channel>
+</rss>
+"#;
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "user@example.com", "Password123!").await;
+    let token = login(&app, "user@example.com", "Password123!").await;
+
+    let addr = mock_feed_server(rss).await;
+    let feed_url = format!("http://{}/feed.xml", addr);
+
+    let body = json!({"url": feed_url});
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "POST",
+            "/api/v1/feeds",
+            Body::from(body.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let created: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(created["title"], "Example");
+    assert_eq!(created["url"], feed_url);
 }

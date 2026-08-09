@@ -151,7 +151,19 @@ impl CrawlerService {
 
         let status = response.status();
         if status == reqwest::StatusCode::NOT_MODIFIED {
-            return self.record_success(feed_id, 0, None, None).await;
+            return self
+                .record_success(
+                    feed_id,
+                    0,
+                    None,
+                    None,
+                    FeedMeta {
+                        title: None,
+                        description: None,
+                        site_url: None,
+                    },
+                )
+                .await;
         }
 
         let final_url = response.url().clone();
@@ -188,24 +200,24 @@ impl CrawlerService {
         let text = String::from_utf8_lossy(&bytes);
         let content_type = content_type_hint(&text);
 
-        let articles = match content_type {
+        let parsed = match content_type {
             FeedType::Rss => parse_rss(&bytes, &feed_url, &final_url),
             FeedType::Atom => parse_atom(&bytes, &feed_url, &final_url),
             FeedType::Json => parse_json(&bytes, &feed_url, &final_url),
             FeedType::Unknown => {
                 // Try each format.
-                if let Ok(a) = parse_rss(&bytes, &feed_url, &final_url) {
-                    Ok(a)
-                } else if let Ok(a) = parse_atom(&bytes, &feed_url, &final_url) {
-                    Ok(a)
+                if let Ok(p) = parse_rss(&bytes, &feed_url, &final_url) {
+                    Ok(p)
+                } else if let Ok(p) = parse_atom(&bytes, &feed_url, &final_url) {
+                    Ok(p)
                 } else {
                     parse_json(&bytes, &feed_url, &final_url)
                 }
             }
         };
 
-        let articles = match articles {
-            Ok(a) => a,
+        let parsed = match parsed {
+            Ok(p) => p,
             Err(e) => {
                 return self
                     .record_failure(feed_id, &format!("parse failed: {}", e))
@@ -213,16 +225,26 @@ impl CrawlerService {
             }
         };
 
-        let count = articles.len();
+        let count = parsed.articles.len();
         let now_ms = Utc::now().timestamp_millis();
-        for input in articles {
+        for input in parsed.articles {
             if let Err(e) = self.upsert_article(feed_id, input, now_ms).await {
                 tracing::warn!("failed to upsert article for feed {}: {}", feed_id, e);
             }
         }
 
-        self.record_success(feed_id, count, etag, last_modified)
-            .await
+        self.record_success(
+            feed_id,
+            count,
+            etag,
+            last_modified,
+            FeedMeta {
+                title: parsed.title,
+                description: parsed.description,
+                site_url: parsed.site_url,
+            },
+        )
+        .await
     }
 
     async fn upsert_article(&self, feed_id: i64, input: ArticleInput, now_ms: i64) -> Result<()> {
@@ -314,6 +336,7 @@ impl CrawlerService {
         articles_found: usize,
         etag: Option<String>,
         last_modified: Option<String>,
+        meta: FeedMeta,
     ) -> Result<()> {
         let now_ms = Utc::now().timestamp_millis();
         let row = sqlx::query!(
@@ -334,7 +357,10 @@ impl CrawlerService {
                 backoff_until = NULL,
                 last_etag = ?,
                 last_modified = ?,
-                updated_at = ?
+                updated_at = ?,
+                title = COALESCE(?, title),
+                description = COALESCE(?, description),
+                site_url = COALESCE(?, site_url)
             WHERE id = ?
             "#,
             now_ms,
@@ -342,6 +368,9 @@ impl CrawlerService {
             etag,
             last_modified,
             now_ms,
+            meta.title,
+            meta.description,
+            meta.site_url,
             feed_id
         )
         .execute(&self.pool)
@@ -438,7 +467,21 @@ fn content_type_hint(text: &str) -> FeedType {
     FeedType::Unknown
 }
 
-fn parse_rss(bytes: &[u8], feed_url: &str, final_url: &Url) -> Result<Vec<ArticleInput>> {
+#[derive(Default)]
+struct ParsedFeed {
+    title: Option<String>,
+    description: Option<String>,
+    site_url: Option<String>,
+    articles: Vec<ArticleInput>,
+}
+
+struct FeedMeta {
+    title: Option<String>,
+    description: Option<String>,
+    site_url: Option<String>,
+}
+
+fn parse_rss(bytes: &[u8], feed_url: &str, final_url: &Url) -> Result<ParsedFeed> {
     let channel = rss::Channel::read_from(bytes)
         .map_err(|e| AppError::Internal(format!("rss parse: {}", e)))?;
     let base = if channel.link().is_empty() {
@@ -447,6 +490,9 @@ fn parse_rss(bytes: &[u8], feed_url: &str, final_url: &Url) -> Result<Vec<Articl
         channel.link().to_string()
     };
     let base_url = Url::parse(&base).unwrap_or_else(|_| final_url.clone());
+    let title = Some(channel.title().to_string()).filter(|s: &String| !s.is_empty());
+    let description = Some(channel.description().to_string()).filter(|s: &String| !s.is_empty());
+    let site_url = Some(base).filter(|s: &String| !s.is_empty());
     let mut out = Vec::new();
     for item in channel.items() {
         let url = item
@@ -479,10 +525,15 @@ fn parse_rss(bytes: &[u8], feed_url: &str, final_url: &Url) -> Result<Vec<Articl
             published_at,
         });
     }
-    Ok(out)
+    Ok(ParsedFeed {
+        title,
+        description,
+        site_url,
+        articles: out,
+    })
 }
 
-fn parse_atom(bytes: &[u8], _feed_url: &str, final_url: &Url) -> Result<Vec<ArticleInput>> {
+fn parse_atom(bytes: &[u8], _feed_url: &str, final_url: &Url) -> Result<ParsedFeed> {
     let feed = atom_syndication::Feed::read_from(bytes)
         .map_err(|e| AppError::Internal(format!("atom parse: {}", e)))?;
     let base_url = feed
@@ -492,6 +543,17 @@ fn parse_atom(bytes: &[u8], _feed_url: &str, final_url: &Url) -> Result<Vec<Arti
         .map(|l| l.href().to_string())
         .and_then(|h| Url::parse(&h).ok())
         .unwrap_or_else(|| final_url.clone());
+    let title = Some(feed.title().value.clone()).filter(|s: &String| !s.is_empty());
+    let description = feed
+        .subtitle()
+        .map(|s| s.value.clone())
+        .filter(|s: &String| !s.is_empty());
+    let site_url = feed
+        .links()
+        .iter()
+        .find(|l| l.rel() == "alternate")
+        .map(|l| l.href().to_string())
+        .filter(|s: &String| !s.is_empty());
     let mut out = Vec::new();
     for entry in feed.entries() {
         let url = entry
@@ -523,10 +585,15 @@ fn parse_atom(bytes: &[u8], _feed_url: &str, final_url: &Url) -> Result<Vec<Arti
             published_at,
         });
     }
-    Ok(out)
+    Ok(ParsedFeed {
+        title,
+        description,
+        site_url,
+        articles: out,
+    })
 }
 
-fn parse_json(bytes: &[u8], _feed_url: &str, final_url: &Url) -> Result<Vec<ArticleInput>> {
+fn parse_json(bytes: &[u8], _feed_url: &str, final_url: &Url) -> Result<ParsedFeed> {
     let text =
         std::str::from_utf8(bytes).map_err(|e| AppError::Internal(format!("utf8: {}", e)))?;
     let json: serde_json::Value =
@@ -536,6 +603,21 @@ fn parse_json(bytes: &[u8], _feed_url: &str, final_url: &Url) -> Result<Vec<Arti
         .and_then(|v| v.as_str())
         .unwrap_or(final_url.as_str());
     let base_url = Url::parse(feed_url).unwrap_or_else(|_| final_url.clone());
+    let title = json
+        .get("title")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .filter(|s: &String| !s.is_empty());
+    let description = json
+        .get("description")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .filter(|s: &String| !s.is_empty());
+    let site_url = json
+        .get("home_page_url")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .filter(|s: &String| !s.is_empty());
     let items = json
         .get("items")
         .and_then(|v| v.as_array())
@@ -583,7 +665,12 @@ fn parse_json(bytes: &[u8], _feed_url: &str, final_url: &Url) -> Result<Vec<Arti
             published_at,
         });
     }
-    Ok(out)
+    Ok(ParsedFeed {
+        title,
+        description,
+        site_url,
+        articles: out,
+    })
 }
 
 fn resolve_url(url: &str, base: &Url) -> String {
