@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tailwindcss -i ./assets/css/input.css -o ./assets/css/tailadmin.css --minify",
     "watch": "tailwindcss -i ./assets/css/input.css -o ./assets/css/tailadmin.css --watch",
-    "backup": "[ -f rss.db ] && sqlite3 rss.db \".backup 'rss-$(($(ls rss-[0-9]*.rss 2>/dev/null | sed 's/.*rss-\\([0-9]*\\)\\.rss/\\1/' | sort -n | tail -1) + 1)).rss'\" || true",
+    "backup": "DB=$(grep -m1 '^DATABASE_URL=' .env | cut -d= -f2- | sed 's/^sqlite://'); [ -f \"$DB\" ] && sqlite3 \"$DB\" \".backup 'rss-$(($(ls rss-[0-9]*.rss 2>/dev/null | sed 's/.*rss-\\([0-9]*\\)\\.rss/\\1/' | sort -n | tail -1) + 1)).rss'\" || true",
     "build:all": "npm run backup && npm run build && cargo build --release",
     "build:all:force": "npm run backup && npm run build && cargo clean -p rustrsssrv && cargo build --release"
   },
