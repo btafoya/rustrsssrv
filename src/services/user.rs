@@ -94,9 +94,9 @@ impl UserService {
             timezone = v;
         }
         if let Some(v) = req.default_filter {
-            if v != "all" && v != "unread" {
+            if !matches!(v.as_str(), "all" | "unread" | "read" | "starred") {
                 return Err(AppError::BadRequest(
-                    "default_filter must be 'all' or 'unread'".into(),
+                    "default_filter must be 'all', 'unread', 'read', or 'starred'".into(),
                 ));
             }
             default_filter = v;

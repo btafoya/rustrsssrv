@@ -63,7 +63,7 @@ Build a self-hosted RSS aggregation server in Rust with SQLite storage, a TailAd
 - Per-user read/unread status.
 - Articles are marked read when opened in the web UI, when scrolled to the end, or by manual toggle.
 - Starred articles preserved beyond the retention window.
-- Default article view filter is the user's last chosen setting (unread-only or all); `GET /api/v1/articles` applies this default when `is_read` is not supplied.
+- Default article view filter is the user's last chosen setting (all, unread, read, or starred); `GET /api/v1/articles` applies this default when `is_read` and `is_starred` are not supplied.
 
 ### 3.8 API and Clients
 - REST JSON API documented with OpenAPI; URL versioned under `/api/v1/`.

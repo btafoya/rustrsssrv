@@ -9,6 +9,15 @@ use crate::handlers::{AuthUser, WebResult, strip_html_tags};
 use crate::models::ListArticlesQuery;
 use crate::state::AppState;
 
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct ArticleListWebQuery {
+    pub feed_id: Option<i64>,
+    pub filter: Option<String>,
+    pub sort: Option<String>,
+    pub cursor: Option<i64>,
+    pub limit: Option<i64>,
+}
+
 #[derive(Template)]
 #[template(path = "article.html")]
 struct ArticleTemplate {
@@ -77,31 +86,34 @@ pub async fn article_page(
 pub async fn article_list_page(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
-    Query(mut params): Query<ListArticlesQuery>,
+    Query(params): Query<ArticleListWebQuery>,
 ) -> WebResult<Response> {
     let user = state.users.get_by_id(user_id).await?;
 
-    if params.is_read.is_none() {
-        params.is_read = match user.default_filter.as_str() {
-            "all" => None,
-            _ => Some(false),
-        };
-    }
-    if params.sort.is_none() {
-        params.sort = Some(user.default_sort_order.clone());
-    }
-    if params.limit.is_none() {
-        params.limit = Some(50);
-    }
-
-    let page = state.articles.list(user_id, params.clone()).await?;
-
-    let filter = match params.is_read {
-        None => "all".to_string(),
-        Some(true) => "read".to_string(),
-        Some(false) => "unread".to_string(),
+    let filter = params.filter.unwrap_or_else(|| user.default_filter.clone());
+    let (is_read, is_starred) = match filter.as_str() {
+        "all" => (None, None),
+        "unread" => (Some(false), None),
+        "read" => (Some(true), None),
+        "starred" => (None, Some(true)),
+        _ => (Some(false), None),
     };
-    let sort = params.sort.unwrap_or_else(|| "oldest_first".to_string());
+
+    let sort = params
+        .sort
+        .unwrap_or_else(|| user.default_sort_order.clone());
+    let limit = params.limit.unwrap_or(50);
+
+    let list_query = ListArticlesQuery {
+        feed_id: params.feed_id,
+        is_read,
+        is_starred,
+        sort: Some(sort.clone()),
+        cursor: params.cursor,
+        limit: Some(limit),
+    };
+
+    let page = state.articles.list(user_id, list_query).await?;
 
     let rows: Vec<ArticleRow> = page
         .items

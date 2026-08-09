@@ -59,7 +59,7 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,
     timezone TEXT NOT NULL DEFAULT 'UTC',
     default_filter TEXT NOT NULL DEFAULT 'unread'
-        CHECK (default_filter IN ('all', 'unread')),
+        CHECK (default_filter IN ('all', 'unread', 'read', 'starred')),
     default_sort_order TEXT NOT NULL DEFAULT 'oldest_first'
         CHECK (default_sort_order IN ('oldest_first', 'newest_first')),
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),

@@ -6,10 +6,11 @@
 <div class="mb-6 flex items-center justify-between">
     <h1 class="text-2xl font-bold">Articles</h1>
     <form method="GET" action="/articles" class="flex items-center space-x-2">
-        <select name="is_read" class="border rounded px-2 py-1">
-            <option value="" {% if filter == "all" %}selected{% endif %}>All</option>
-            <option value="false" {% if filter == "unread" %}selected{% endif %}>Unread</option>
-            <option value="true" {% if filter == "read" %}selected{% endif %}>Read</option>
+        <select name="filter" class="border rounded px-2 py-1">
+            <option value="all" {% if filter == "all" %}selected{% endif %}>All</option>
+            <option value="unread" {% if filter == "unread" %}selected{% endif %}>Unread</option>
+            <option value="read" {% if filter == "read" %}selected{% endif %}>Read</option>
+            <option value="starred" {% if filter == "starred" %}selected{% endif %}>Starred</option>
         </select>
         <select name="sort" class="border rounded px-2 py-1">
             <option value="oldest_first" {% if sort == "oldest_first" %}selected{% endif %}>Oldest first</option>
@@ -23,7 +24,7 @@
 
 {% if let Some(cursor) = next_cursor %}
 <div class="mt-6">
-    <a href="/articles?is_read={{ filter }}&sort={{ sort }}&cursor={{ cursor }}" class="text-blue-600 hover:underline">Next →</a>
+    <a href="/articles?filter={{ filter }}&sort={{ sort }}&cursor={{ cursor }}" class="text-blue-600 hover:underline">Next →</a>
 </div>
 {% endif %}
 {% endblock %}

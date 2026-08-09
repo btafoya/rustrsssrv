@@ -19,6 +19,8 @@
         <select name="default_filter" class="w-full border rounded px-3 py-2">
             <option value="all" {% if default_filter == "all" %}selected{% endif %}>All</option>
             <option value="unread" {% if default_filter == "unread" %}selected{% endif %}>Unread</option>
+            <option value="read" {% if default_filter == "read" %}selected{% endif %}>Read</option>
+            <option value="starred" {% if default_filter == "starred" %}selected{% endif %}>Starred</option>
         </select>
     </div>
     <div>
