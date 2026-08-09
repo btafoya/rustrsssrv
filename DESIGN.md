@@ -233,7 +233,7 @@ Cursor-based. Article/feed list responses include:
 }
 ```
 
-`cursor` is the ID of the last item on the current page; the server orders by `id` and returns items after that cursor. `has_more` reflects `next_cursor` regardless of paging direction.
+`cursor` is the ID of the last item on the current page. Article lists order by `published_at` (falling back to `fetched_at` when absent) with `id` as a tiebreak, and return items after that cursor's position in that ordering; other list endpoints (e.g. feeds) order by `id` alone. `has_more` reflects `next_cursor` regardless of paging direction.
 
 Article lists additionally accept `direction` (`next`, the default, or `prev`) to page backward from `cursor` using `prev_cursor`. Keyset pagination only — no offset/page-number support.
 

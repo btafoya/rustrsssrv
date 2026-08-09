@@ -62,7 +62,6 @@ impl ArticleService {
         let desc_flag = (newest_first ^ going_backward) as i32;
         let limit = query.limit.unwrap_or(20).clamp(1, 100);
         let raw_cursor = query.cursor;
-        let cursor = raw_cursor.unwrap_or(if desc_flag == 1 { i64::MAX } else { 0 });
         let page_size = limit + 1;
 
         let is_read_filter = match query.is_read {
@@ -102,12 +101,20 @@ impl ArticleService {
                 WHERE af2.article_id = a.id
             )
             AND (
-                CASE WHEN ? = 1 THEN a.id < ? ELSE a.id > ? END
+                ? IS NULL OR
+                CASE WHEN ? = 1
+                    THEN (COALESCE(a.published_at, a.fetched_at), a.id)
+                         < ((SELECT COALESCE(published_at, fetched_at) FROM articles WHERE id = ?), ?)
+                    ELSE (COALESCE(a.published_at, a.fetched_at), a.id)
+                         > ((SELECT COALESCE(published_at, fetched_at) FROM articles WHERE id = ?), ?)
+                END
             )
             AND (? IS NULL OR af.feed_id = ?)
             AND (? IS NULL OR rs.is_read = ?)
             AND (? IS NULL OR rs.is_starred = ?)
             ORDER BY
+                CASE WHEN ? = 1 THEN COALESCE(a.published_at, a.fetched_at) END DESC,
+                CASE WHEN ? = 0 THEN COALESCE(a.published_at, a.fetched_at) END ASC,
                 CASE WHEN ? = 1 THEN a.id END DESC,
                 CASE WHEN ? = 0 THEN a.id END ASC
             LIMIT ?
@@ -115,15 +122,20 @@ impl ArticleService {
             user_id,
             user_id,
             user_id,
+            raw_cursor,
             desc_flag,
-            cursor,
-            cursor,
+            raw_cursor,
+            raw_cursor,
+            raw_cursor,
+            raw_cursor,
             query.feed_id,
             query.feed_id,
             is_read_filter,
             is_read_filter,
             is_starred_filter,
             is_starred_filter,
+            desc_flag,
+            desc_flag,
             desc_flag,
             desc_flag,
             page_size
@@ -239,7 +251,14 @@ impl ArticleService {
                     JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?
                     WHERE af2.article_id = a.id
                 )
-                AND (CASE WHEN ? = 1 THEN a.id < ? ELSE a.id > ? END)
+                AND (
+                    CASE WHEN ? = 1
+                        THEN (COALESCE(a.published_at, a.fetched_at), a.id)
+                             < ((SELECT COALESCE(published_at, fetched_at) FROM articles WHERE id = ?), ?)
+                        ELSE (COALESCE(a.published_at, a.fetched_at), a.id)
+                             > ((SELECT COALESCE(published_at, fetched_at) FROM articles WHERE id = ?), ?)
+                    END
+                )
                 AND (? IS NULL OR af.feed_id = ?)
                 AND (? IS NULL OR rs.is_read = ?)
                 AND (? IS NULL OR rs.is_starred = ?)
@@ -249,6 +268,8 @@ impl ArticleService {
             user_id,
             user_id,
             lt,
+            edge_id,
+            edge_id,
             edge_id,
             edge_id,
             query.feed_id,

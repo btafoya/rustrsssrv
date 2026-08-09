@@ -119,6 +119,56 @@ async fn insert_article(pool: &sqlx::SqlitePool, url: &str, title: &str, feed_id
     article_id
 }
 
+async fn insert_article_with_published_at(
+    pool: &sqlx::SqlitePool,
+    url: &str,
+    title: &str,
+    feed_id: i64,
+    published_at: i64,
+) -> i64 {
+    let now = chrono::Utc::now().timestamp_millis();
+    let article_id = sqlx::query!(
+        r#"
+        INSERT INTO articles (url, title, markdown_content, published_at, fetched_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        RETURNING id
+        "#,
+        url,
+        title,
+        "",
+        published_at,
+        now,
+        now
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+    .id;
+
+    sqlx::query!(
+        "INSERT OR IGNORE INTO article_feeds (article_id, feed_id, first_seen_at) VALUES (?, ?, ?)",
+        article_id,
+        feed_id,
+        now
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    sqlx::query!(
+        "INSERT OR IGNORE INTO read_states (user_id, article_id, created_at, updated_at) SELECT user_id, ?, ?, ? FROM subscriptions WHERE feed_id = ?",
+        article_id,
+        now,
+        now,
+        feed_id
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    article_id
+}
+
 #[tokio::test]
 async fn articles_require_auth() {
     let (app, _pool, _dir) = common::app_with_db().await;
@@ -217,6 +267,65 @@ async fn get_article_requires_subscription() {
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn list_articles_sorts_by_published_at_not_insertion_order() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "user@example.com", "Password123!").await;
+    let token = login(&app, "user@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+
+    // RSS feeds conventionally list items newest-first, and the crawler inserts
+    // them in that order — so insertion order is the reverse of publish order.
+    // A real fix must sort by published_at, not by id/insertion order.
+    let base = 1_700_000_000_000_i64;
+    insert_article_with_published_at(&pool, "https://example.com/c", "Newest", feed_id, base + 2)
+        .await;
+    insert_article_with_published_at(&pool, "https://example.com/b", "Middle", feed_id, base + 1)
+        .await;
+    insert_article_with_published_at(&pool, "https://example.com/a", "Oldest", feed_id, base).await;
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/api/v1/articles?sort=newest_first",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let page: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let titles: Vec<&str> = page["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| a["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, vec!["Newest", "Middle", "Oldest"]);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/api/v1/articles?sort=oldest_first",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let page: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let titles: Vec<&str> = page["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| a["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, vec!["Oldest", "Middle", "Newest"]);
 }
 
 #[tokio::test]
