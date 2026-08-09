@@ -12,11 +12,6 @@
     {{ unread_count }} unread article{% if unread_count != 1 %}s{% endif %} across {{ feed_count }} feed{% if feed_count != 1 %}s{% endif %}.
 </p>
 
-<div class="flex items-center space-x-4 mb-6">
-    <a href="/articles" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Read articles</a>
-    <a href="/feeds" class="bg-white border px-4 py-2 rounded hover:bg-gray-50">Manage feeds</a>
-</div>
-
 <h2 class="text-xl font-semibold mb-4">Recent unread</h2>
 {% include "article_list_partial.html" %}
 {% endblock %}

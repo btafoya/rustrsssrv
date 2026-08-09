@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT status, error_message FROM feed_fetch_logs WHERE feed_id = ? ORDER BY fetched_at DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "status",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "error_message",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "40960da38353bde3050cc80533c5b75463bd490dfb0365e7f6f011f2af73e111"
+}

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) as cnt FROM subscriptions",
+  "describe": {
+    "columns": [
+      {
+        "name": "cnt",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "217dc3bf2eb75a644be26dccc32b7e85442690fbbd970a01694daaab056556c3"
+}

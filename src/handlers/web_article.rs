@@ -6,7 +6,7 @@ use comrak::{Options, markdown_to_html};
 
 use crate::errors::AppError;
 use crate::handlers::{AuthUser, WebResult, strip_html_tags};
-use crate::models::ListArticlesQuery;
+use crate::models::{ListArticlesQuery, UserUpdate};
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Default, serde::Deserialize)]
@@ -18,6 +18,7 @@ pub struct ArticleListWebQuery {
     pub is_starred: Option<String>,
     pub sort: Option<String>,
     pub cursor: Option<i64>,
+    pub dir: Option<String>,
     pub limit: Option<i64>,
 }
 
@@ -57,6 +58,7 @@ struct ArticleListTemplate {
     filter: String,
     sort: String,
     next_cursor: Option<i64>,
+    prev_cursor: Option<i64>,
 }
 
 struct ArticleRow {
@@ -125,8 +127,29 @@ pub async fn article_list_page(
 
     let sort = params
         .sort
+        .clone()
         .unwrap_or_else(|| user.default_sort_order.clone());
     let limit = params.limit.unwrap_or(50);
+
+    // Explicit filter/sort submitted via the page's form becomes the user's new
+    // default. Legacy is_read/is_starred bookmark links are excluded on purpose.
+    if params.filter.is_some() || params.sort.is_some() {
+        let update = UserUpdate {
+            email: None,
+            timezone: None,
+            default_filter: params.filter.clone(),
+            default_sort_order: params.sort.clone(),
+            current_password: None,
+            new_password: None,
+        };
+        if let Err(e) = state.users.update(user_id, update).await {
+            tracing::warn!(
+                "failed to save default filter/sort for user {}: {}",
+                user_id,
+                e
+            );
+        }
+    }
 
     let list_query = ListArticlesQuery {
         feed_id: params.feed_id,
@@ -134,6 +157,7 @@ pub async fn article_list_page(
         is_starred,
         sort: Some(sort.clone()),
         cursor: params.cursor,
+        direction: params.dir.clone(),
         limit: Some(limit),
     };
 
@@ -158,6 +182,7 @@ pub async fn article_list_page(
         filter,
         sort,
         next_cursor: page.next_cursor,
+        prev_cursor: page.prev_cursor,
     };
     Ok(Html(
         tpl.render()

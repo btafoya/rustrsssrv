@@ -22,9 +22,42 @@
 
 {% include "article_list_partial.html" %}
 
-{% if let Some(cursor) = next_cursor %}
-<div class="mt-6">
-    <a href="/articles?filter={{ filter }}&sort={{ sort }}&cursor={{ cursor }}" class="text-blue-600 hover:underline">Next →</a>
-</div>
-{% endif %}
+<nav aria-label="Page navigation" class="flex justify-center mt-6">
+    <ul class="inline-flex -space-x-px text-sm">
+        <li>
+            {% if let Some(cursor) = prev_cursor %}
+            <a href="/articles?filter={{ filter }}&sort={{ sort }}&dir=prev&cursor={{ cursor }}" class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg hover:bg-gray-100 hover:text-gray-700">
+                <span class="sr-only">Previous</span>
+                <svg class="w-2.5 h-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 1 1 5l4 4"/>
+                </svg>
+            </a>
+            {% else %}
+            <span aria-disabled="true" class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-300 bg-white border border-gray-200 rounded-s-lg cursor-not-allowed">
+                <span class="sr-only">Previous</span>
+                <svg class="w-2.5 h-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 1 1 5l4 4"/>
+                </svg>
+            </span>
+            {% endif %}
+        </li>
+        <li>
+            {% if let Some(cursor) = next_cursor %}
+            <a href="/articles?filter={{ filter }}&sort={{ sort }}&cursor={{ cursor }}" class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg hover:bg-gray-100 hover:text-gray-700">
+                <span class="sr-only">Next</span>
+                <svg class="w-2.5 h-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>
+                </svg>
+            </a>
+            {% else %}
+            <span aria-disabled="true" class="flex items-center justify-center px-3 h-8 leading-tight text-gray-300 bg-white border border-gray-200 rounded-e-lg cursor-not-allowed">
+                <span class="sr-only">Next</span>
+                <svg class="w-2.5 h-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>
+                </svg>
+            </span>
+            {% endif %}
+        </li>
+    </ul>
+</nav>
 {% endblock %}

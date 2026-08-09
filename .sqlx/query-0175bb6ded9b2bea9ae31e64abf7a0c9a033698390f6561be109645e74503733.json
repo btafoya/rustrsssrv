@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT COUNT(*) as \"count!: i64\"\n            FROM articles a\n            JOIN article_feeds af ON af.article_id = a.id\n            JOIN subscriptions s ON s.feed_id = af.feed_id AND s.user_id = ?\n            LEFT JOIN read_states rs ON rs.article_id = a.id AND rs.user_id = ?\n            WHERE af.feed_id = (\n                SELECT MIN(af2.feed_id)\n                FROM article_feeds af2\n                JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?\n                WHERE af2.article_id = a.id\n            )\n            AND COALESCE(rs.is_read, 0) = 0\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!: i64",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0175bb6ded9b2bea9ae31e64abf7a0c9a033698390f6561be109645e74503733"
+}

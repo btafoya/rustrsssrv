@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT EXISTS(\n                SELECT 1\n                FROM articles a\n                JOIN article_feeds af ON af.article_id = a.id\n                JOIN subscriptions s ON s.feed_id = af.feed_id AND s.user_id = ?\n                LEFT JOIN read_states rs ON rs.article_id = a.id AND rs.user_id = ?\n                WHERE af.feed_id = (\n                    SELECT MIN(af2.feed_id)\n                    FROM article_feeds af2\n                    JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?\n                    WHERE af2.article_id = a.id\n                )\n                AND (CASE WHEN ? = 1 THEN a.id < ? ELSE a.id > ? END)\n                AND (? IS NULL OR af.feed_id = ?)\n                AND (? IS NULL OR rs.is_read = ?)\n                AND (? IS NULL OR rs.is_starred = ?)\n            ) as \"found!: i32\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "found!: i32",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 12
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2ecc23bdc14975a18187685a942543f4060a00612588e166766cad8e501b0a32"
+}

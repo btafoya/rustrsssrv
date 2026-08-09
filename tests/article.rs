@@ -475,6 +475,143 @@ async fn search_requires_auth() {
 }
 
 #[tokio::test]
+async fn list_articles_pages_backward_with_prev_cursor() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "user@example.com", "Password123!").await;
+    let token = login(&app, "user@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+
+    for i in 0..3 {
+        insert_article(
+            &pool,
+            &format!("https://example.com/post-{}", i),
+            &format!("Post {}", i),
+            feed_id,
+        )
+        .await;
+    }
+
+    // Page 1 (oldest_first default): 2 items, a next cursor, no prev cursor.
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/api/v1/articles?limit=2",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let page1: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(page1["prev_cursor"].is_null());
+    let next_cursor = page1["next_cursor"].as_i64().unwrap();
+
+    // Page 2: 1 remaining item, no next cursor, a prev cursor pointing back.
+    let uri = format!("/api/v1/articles?limit=2&cursor={}", next_cursor);
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "GET", &uri, Body::empty()))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let page2: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(page2["next_cursor"].is_null());
+    let prev_cursor = page2["prev_cursor"].as_i64().unwrap();
+
+    // Following prev_cursor with direction=prev reconstructs page 1 exactly.
+    let uri = format!(
+        "/api/v1/articles?limit=2&cursor={}&direction=prev",
+        prev_cursor
+    );
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "GET", &uri, Body::empty()))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let back: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+
+    let back_ids: Vec<i64> = back["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["id"].as_i64().unwrap())
+        .collect();
+    let page1_ids: Vec<i64> = page1["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["id"].as_i64().unwrap())
+        .collect();
+    assert_eq!(back_ids, page1_ids);
+    assert!(back["prev_cursor"].is_null());
+    assert_eq!(back["next_cursor"].as_i64().unwrap(), next_cursor);
+}
+
+#[tokio::test]
+async fn article_list_page_saves_explicit_filter_but_not_legacy_params() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "user@example.com", "Password123!").await;
+    let token = login(&app, "user@example.com", "Password123!").await;
+
+    // Legacy bookmark-style param must not overwrite the saved default.
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/articles?is_read=true",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/api/v1/users/me",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let user: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(user["default_filter"], "unread");
+
+    // Explicit filter/sort submitted via the page's own form is saved.
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/articles?filter=starred&sort=newest_first",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/api/v1/users/me",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let user: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(user["default_filter"], "starred");
+    assert_eq!(user["default_sort_order"], "newest_first");
+}
+
+#[tokio::test]
 async fn search_matches_subscribed_articles() {
     let (app, pool, _dir) = common::app_with_db().await;
     create_user(&app, "searcher@example.com", "Password123!").await;

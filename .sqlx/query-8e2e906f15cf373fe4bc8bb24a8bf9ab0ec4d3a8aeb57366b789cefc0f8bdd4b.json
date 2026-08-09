@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE feeds\n            SET last_fetched_at = ?,\n                next_fetch_at = ?,\n                consecutive_failures = 0,\n                backoff_until = NULL,\n                last_etag = ?,\n                last_modified = ?,\n                updated_at = ?,\n                title = COALESCE(?, title),\n                description = COALESCE(?, description),\n                site_url = COALESCE(?, site_url)\n            WHERE id = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "8e2e906f15cf373fe4bc8bb24a8bf9ab0ec4d3a8aeb57366b789cefc0f8bdd4b"
+}

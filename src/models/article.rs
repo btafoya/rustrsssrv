@@ -21,6 +21,7 @@ pub struct Article {
 pub struct ArticlePage {
     pub items: Vec<Article>,
     pub next_cursor: Option<i64>,
+    pub prev_cursor: Option<i64>,
     pub has_more: bool,
 }
 
@@ -40,6 +41,7 @@ pub struct ListArticlesQuery {
     pub is_starred: Option<bool>,
     pub sort: Option<String>,
     pub cursor: Option<i64>,
+    pub direction: Option<String>,
     pub limit: Option<i64>,
 }
 
@@ -49,5 +51,9 @@ impl ListArticlesQuery {
             .as_deref()
             .map(|s| s.eq_ignore_ascii_case("newest_first"))
             .unwrap_or(false)
+    }
+
+    pub fn is_backward(&self) -> bool {
+        self.direction.as_deref() == Some("prev")
     }
 }

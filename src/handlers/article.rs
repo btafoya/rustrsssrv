@@ -23,6 +23,7 @@ pub struct SearchQuery {
         ("is_starred" = Option<bool>, Query, description = "Filter by starred state"),
         ("sort" = Option<String>, Query, description = "oldest_first or newest_first"),
         ("cursor" = Option<i64>, Query, description = "Cursor for pagination"),
+        ("direction" = Option<String>, Query, description = "next (default) or prev, direction to page from cursor"),
         ("limit" = Option<i64>, Query, description = "Page size")
     ),
     responses((status = 200, description = "Paginated article list", body = ArticlePage))

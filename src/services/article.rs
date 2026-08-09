@@ -55,11 +55,14 @@ impl ArticleService {
     }
 
     pub async fn list(&self, user_id: i64, query: ListArticlesQuery) -> Result<ArticlePage> {
-        let newest_first = query.is_newest_first() as i32;
+        let newest_first = query.is_newest_first();
+        let going_backward = query.is_backward();
+        // Paging backward is structurally a forward query with the comparator/order
+        // flipped, then the fetched rows are reversed back into display order.
+        let desc_flag = (newest_first ^ going_backward) as i32;
         let limit = query.limit.unwrap_or(20).clamp(1, 100);
-        let cursor = query
-            .cursor
-            .unwrap_or(if newest_first != 0 { i64::MAX } else { 0 });
+        let raw_cursor = query.cursor;
+        let cursor = raw_cursor.unwrap_or(if desc_flag == 1 { i64::MAX } else { 0 });
         let page_size = limit + 1;
 
         let is_read_filter = match query.is_read {
@@ -112,7 +115,7 @@ impl ArticleService {
             user_id,
             user_id,
             user_id,
-            newest_first,
+            desc_flag,
             cursor,
             cursor,
             query.feed_id,
@@ -121,8 +124,8 @@ impl ArticleService {
             is_read_filter,
             is_starred_filter,
             is_starred_filter,
-            newest_first,
-            newest_first,
+            desc_flag,
+            desc_flag,
             page_size
         )
         .fetch_all(&self.pool)
@@ -148,21 +151,116 @@ impl ArticleService {
             })
             .collect();
 
-        let has_more = items.len() > limit as usize;
-        if has_more {
+        let has_more_query_dir = items.len() > limit as usize;
+        if has_more_query_dir {
             items.pop();
         }
-        let next_cursor = if has_more {
-            items.last().map(|a| a.id)
+        if going_backward {
+            items.reverse();
+        }
+
+        let Some(first_id) = items.first().map(|a| a.id) else {
+            return Ok(ArticlePage {
+                items,
+                next_cursor: None,
+                prev_cursor: None,
+                has_more: false,
+            });
+        };
+        let last_id = items.last().unwrap().id;
+
+        let (next_cursor, prev_cursor) = if going_backward {
+            let prev_cursor = has_more_query_dir.then_some(first_id);
+            let next_cursor = if raw_cursor.is_none() {
+                None
+            } else {
+                self.exists_beyond(
+                    user_id,
+                    &query,
+                    last_id,
+                    newest_first,
+                    is_read_filter,
+                    is_starred_filter,
+                )
+                .await?
+                .then_some(last_id)
+            };
+            (next_cursor, prev_cursor)
         } else {
-            None
+            let next_cursor = has_more_query_dir.then_some(last_id);
+            let prev_cursor = if raw_cursor.is_none() {
+                None
+            } else {
+                self.exists_beyond(
+                    user_id,
+                    &query,
+                    first_id,
+                    !newest_first,
+                    is_read_filter,
+                    is_starred_filter,
+                )
+                .await?
+                .then_some(first_id)
+            };
+            (next_cursor, prev_cursor)
         };
 
         Ok(ArticlePage {
             items,
+            has_more: next_cursor.is_some(),
             next_cursor,
-            has_more,
+            prev_cursor,
         })
+    }
+
+    /// Cheap existence check for the page edge not covered by the main query's
+    /// overfetch: "is there a row on the far side of `edge_id`, in display order".
+    async fn exists_beyond(
+        &self,
+        user_id: i64,
+        query: &ListArticlesQuery,
+        edge_id: i64,
+        less_than: bool,
+        is_read_filter: Option<i32>,
+        is_starred_filter: Option<i32>,
+    ) -> Result<bool> {
+        let lt = less_than as i32;
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1
+                FROM articles a
+                JOIN article_feeds af ON af.article_id = a.id
+                JOIN subscriptions s ON s.feed_id = af.feed_id AND s.user_id = ?
+                LEFT JOIN read_states rs ON rs.article_id = a.id AND rs.user_id = ?
+                WHERE af.feed_id = (
+                    SELECT MIN(af2.feed_id)
+                    FROM article_feeds af2
+                    JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?
+                    WHERE af2.article_id = a.id
+                )
+                AND (CASE WHEN ? = 1 THEN a.id < ? ELSE a.id > ? END)
+                AND (? IS NULL OR af.feed_id = ?)
+                AND (? IS NULL OR rs.is_read = ?)
+                AND (? IS NULL OR rs.is_starred = ?)
+            ) as "found!: i32"
+            "#,
+            user_id,
+            user_id,
+            user_id,
+            lt,
+            edge_id,
+            edge_id,
+            query.feed_id,
+            query.feed_id,
+            is_read_filter,
+            is_read_filter,
+            is_starred_filter,
+            is_starred_filter,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.found != 0)
     }
 
     pub async fn get(&self, user_id: i64, article_id: i64) -> Result<Article> {
@@ -396,6 +494,7 @@ impl ArticleService {
         Ok(ArticlePage {
             items,
             next_cursor: None,
+            prev_cursor: None,
             has_more: false,
         })
     }

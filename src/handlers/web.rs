@@ -85,6 +85,7 @@ pub async fn dashboard(
         is_starred: None,
         sort: None,
         cursor: None,
+        direction: None,
         limit: Some(10),
     };
     let unread_page = state.articles.list(user_id, unread_query).await?;
