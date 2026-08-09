@@ -3,11 +3,23 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use comrak::{Options, markdown_to_html};
+use regex::Regex;
+use std::sync::LazyLock;
 
 use crate::errors::AppError;
 use crate::handlers::{AuthUser, WebResult};
 use crate::models::ListArticlesQuery;
 use crate::state::AppState;
+
+static HTML_TAG_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]+>").unwrap());
+
+fn strip_html_tags(html: &str) -> String {
+    HTML_TAG_RE
+        .replace_all(html, "")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
 #[derive(Template)]
 #[template(path = "article.html")]
@@ -43,6 +55,14 @@ pub async fn article_page(
     Path(article_id): Path<i64>,
 ) -> WebResult<Response> {
     let article = state.articles.get(user_id, article_id).await?;
+    if let Err(e) = state.articles.mark_read(user_id, article_id).await {
+        tracing::warn!(
+            "failed to mark article {} read for user {}: {}",
+            article_id,
+            user_id,
+            e
+        );
+    }
     let html_content = markdown_to_html(&article.markdown_content, &Options::default());
     let published_at = article.published_at.map(|d| d.to_rfc2822());
 
@@ -96,7 +116,7 @@ pub async fn article_list_page(
         .map(|a| ArticleRow {
             id: a.id,
             title: a.title,
-            summary: a.summary,
+            summary: a.summary.as_deref().map(strip_html_tags),
             feed_title: a.feed_title,
             published_at: a.published_at.map(|d| d.to_rfc2822()),
             is_read: a.is_read,
