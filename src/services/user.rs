@@ -46,13 +46,14 @@ impl UserService {
             "UTC".into(),
             "unread".into(),
             "oldest_first".into(),
+            None,
             now,
         ))
     }
 
     pub async fn get_by_id(&self, id: i64) -> Result<User> {
         let row = sqlx::query!(
-            r#"SELECT id as "id!", email, timezone, default_filter, default_sort_order FROM users WHERE id = ?"#,
+            r#"SELECT id as "id!", email, timezone, default_filter, default_sort_order, default_feed_id FROM users WHERE id = ?"#,
             id
         )
         .fetch_one(&self.pool)
@@ -64,8 +65,20 @@ impl UserService {
             row.timezone,
             row.default_filter,
             row.default_sort_order,
+            row.default_feed_id,
             Utc::now(),
         ))
+    }
+
+    pub async fn set_default_feed_id(&self, id: i64, feed_id: Option<i64>) -> Result<()> {
+        sqlx::query!(
+            "UPDATE users SET default_feed_id = ? WHERE id = ?",
+            feed_id,
+            id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn update(&self, id: i64, req: UserUpdate) -> Result<User> {
@@ -152,6 +165,7 @@ impl UserService {
             timezone,
             default_filter,
             default_sort_order,
+            user.default_feed_id,
             now,
         ))
     }
@@ -177,6 +191,7 @@ fn map_user(
     timezone: String,
     default_filter: String,
     default_sort_order: String,
+    default_feed_id: Option<i64>,
     now: DateTime<Utc>,
 ) -> User {
     User {
@@ -185,6 +200,7 @@ fn map_user(
         timezone,
         default_filter,
         default_sort_order,
+        default_feed_id,
         created_at: now,
         updated_at: now,
     }

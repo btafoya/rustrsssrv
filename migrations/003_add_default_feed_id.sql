@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN default_feed_id INTEGER REFERENCES feeds(id) ON DELETE SET NULL;

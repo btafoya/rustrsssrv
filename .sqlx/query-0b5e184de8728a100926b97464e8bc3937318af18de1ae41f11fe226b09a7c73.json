@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", email, password_hash, timezone, default_filter, default_sort_order FROM users WHERE email = ?",
+  "query": "SELECT id as \"id!\", email, password_hash, timezone, default_filter, default_sort_order, default_feed_id FROM users WHERE email = ?",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,11 @@
         "name": "default_sort_order",
         "ordinal": 5,
         "type_info": "Text"
+      },
+      {
+        "name": "default_feed_id",
+        "ordinal": 6,
+        "type_info": "Integer"
       }
     ],
     "parameters": {
@@ -43,8 +48,9 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "3a83351784df434974d5999a8548ec66e743ac6a4d1520fd738264fb09e46b61"
+  "hash": "0b5e184de8728a100926b97464e8bc3937318af18de1ae41f11fe226b09a7c73"
 }

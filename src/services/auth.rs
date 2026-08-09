@@ -52,6 +52,7 @@ impl AuthService {
             timezone: "UTC".into(),
             default_filter: "unread".into(),
             default_sort_order: "oldest_first".into(),
+            default_feed_id: None,
             created_at: now,
             updated_at: now,
         })
@@ -59,7 +60,7 @@ impl AuthService {
 
     pub async fn login(&self, req: LoginRequest) -> Result<LoginResponse> {
         let row = sqlx::query!(
-            r#"SELECT id as "id!", email, password_hash, timezone, default_filter, default_sort_order FROM users WHERE email = ?"#,
+            r#"SELECT id as "id!", email, password_hash, timezone, default_filter, default_sort_order, default_feed_id FROM users WHERE email = ?"#,
             req.email
         )
         .fetch_optional(&self.pool)
@@ -76,6 +77,7 @@ impl AuthService {
             timezone: row.timezone,
             default_filter: row.default_filter,
             default_sort_order: row.default_sort_order,
+            default_feed_id: row.default_feed_id,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -107,7 +109,7 @@ impl AuthService {
         }
 
         let user = sqlx::query!(
-            r#"SELECT id as "id!", email, timezone, default_filter, default_sort_order FROM users WHERE id = ?"#,
+            r#"SELECT id as "id!", email, timezone, default_filter, default_sort_order, default_feed_id FROM users WHERE id = ?"#,
             token.user_id
         )
         .fetch_one(&self.pool)
@@ -119,6 +121,7 @@ impl AuthService {
             timezone: user.timezone,
             default_filter: user.default_filter,
             default_sort_order: user.default_sort_order,
+            default_feed_id: user.default_feed_id,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };

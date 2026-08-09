@@ -12,6 +12,7 @@ pub struct User {
     pub default_filter: String,
     #[serde(rename = "default_sort_order")]
     pub default_sort_order: String,
+    pub default_feed_id: Option<i64>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

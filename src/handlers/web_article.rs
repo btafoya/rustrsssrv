@@ -11,7 +11,9 @@ use crate::state::AppState;
 
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct ArticleListWebQuery {
-    pub feed_id: Option<i64>,
+    // String, not i64: the form's "All Feeds" option submits an empty string,
+    // which Option<i64> can't parse.
+    pub feed_id: Option<String>,
     pub filter: Option<String>,
     // Legacy bool parameters kept for backward compatibility with bookmarks/old links.
     pub is_read: Option<String>,
@@ -55,10 +57,25 @@ struct ArticleTemplate {
 #[template(path = "article_list.html")]
 struct ArticleListTemplate {
     items: Vec<ArticleRow>,
+    feeds: Vec<FeedOption>,
+    feed_id: Option<i64>,
     filter: String,
     sort: String,
     next_cursor: Option<i64>,
     prev_cursor: Option<i64>,
+}
+
+struct FeedOption {
+    id: i64,
+    label: String,
+    selected: bool,
+}
+
+fn truncate_label(s: &str) -> String {
+    if s.chars().count() <= 30 {
+        return s.to_string();
+    }
+    s.chars().take(29).collect::<String>() + "…"
 }
 
 struct ArticleRow {
@@ -112,6 +129,12 @@ pub async fn article_list_page(
 ) -> WebResult<Response> {
     let user = state.users.get_by_id(user_id).await?;
 
+    let feed_id = match params.feed_id.as_deref() {
+        Some("") => None,
+        Some(s) => s.parse::<i64>().ok(),
+        None => user.default_feed_id,
+    };
+
     let filter = params
         .filter
         .clone()
@@ -131,9 +154,10 @@ pub async fn article_list_page(
         .unwrap_or_else(|| user.default_sort_order.clone());
     let limit = params.limit.unwrap_or(50);
 
-    // Explicit filter/sort submitted via the page's form becomes the user's new
-    // default. Legacy is_read/is_starred bookmark links are excluded on purpose.
-    if params.filter.is_some() || params.sort.is_some() {
+    // Explicit filter/sort/feed submitted via the page's form becomes the
+    // user's new default. Legacy is_read/is_starred bookmark links are
+    // excluded on purpose.
+    if params.filter.is_some() || params.sort.is_some() || params.feed_id.is_some() {
         let update = UserUpdate {
             email: None,
             timezone: None,
@@ -149,10 +173,15 @@ pub async fn article_list_page(
                 e
             );
         }
+        if params.feed_id.is_some()
+            && let Err(e) = state.users.set_default_feed_id(user_id, feed_id).await
+        {
+            tracing::warn!("failed to save default feed for user {}: {}", user_id, e);
+        }
     }
 
     let list_query = ListArticlesQuery {
-        feed_id: params.feed_id,
+        feed_id,
         is_read,
         is_starred,
         sort: Some(sort.clone()),
@@ -177,8 +206,22 @@ pub async fn article_list_page(
         })
         .collect();
 
+    let feed_page = state.feeds.list(user_id, None, 100).await?;
+    let mut feeds: Vec<FeedOption> = feed_page
+        .items
+        .into_iter()
+        .map(|f| FeedOption {
+            id: f.id,
+            label: truncate_label(&f.title.unwrap_or(f.url)),
+            selected: Some(f.id) == feed_id,
+        })
+        .collect();
+    feeds.sort_by(|a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase()));
+
     let tpl = ArticleListTemplate {
         items: rows,
+        feeds,
+        feed_id,
         filter,
         sort,
         next_cursor: page.next_cursor,

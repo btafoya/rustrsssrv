@@ -367,6 +367,75 @@ async fn web_articles_filter_starred() {
 }
 
 #[tokio::test]
+async fn web_articles_filter_by_feed_and_persists_default() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+    let feed_a = subscribe(&app, &token, "https://example.com/a.xml").await;
+    let feed_b = subscribe(&app, &token, "https://example.com/b.xml").await;
+
+    insert_article(&pool, "https://example.com/a/1", "From Feed A", feed_a).await;
+    insert_article(&pool, "https://example.com/b/1", "From Feed B", feed_b).await;
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            &format!("/articles?feed_id={}&filter=all", feed_a),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("From Feed A"));
+    assert!(!html.contains("From Feed B"));
+    assert!(html.contains(&format!(r#"value="{}" selected"#, feed_a)));
+
+    // Explicit feed selection persists as the user's default.
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/api/v1/users/me"))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let user: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(user["default_feed_id"], feed_a);
+
+    // Revisiting without a feed_id param falls back to the saved default.
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/articles?filter=all"))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("From Feed A"));
+    assert!(!html.contains("From Feed B"));
+
+    // Explicitly picking "All Feeds" clears the saved default.
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/articles?feed_id=&filter=all"))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("From Feed A"));
+    assert!(html.contains("From Feed B"));
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/api/v1/users/me"))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let user: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(user["default_feed_id"].is_null());
+}
+
+#[tokio::test]
 async fn web_articles_legacy_is_read_empty_shows_all() {
     let (app, pool, _dir) = common::app_with_db().await;
     create_user(&app, "web@example.com", "Password123!").await;
