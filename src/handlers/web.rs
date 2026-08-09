@@ -77,6 +77,8 @@ pub async fn dashboard(
     let feed_page = state.feeds.list(user_id, None, 1000).await?;
     let feed_count = feed_page.items.len() as i64;
 
+    let unread_count = state.articles.count_unread(user_id).await?;
+
     let unread_query = ListArticlesQuery {
         feed_id: None,
         is_read: Some(false),
@@ -86,11 +88,6 @@ pub async fn dashboard(
         limit: Some(10),
     };
     let unread_page = state.articles.list(user_id, unread_query).await?;
-    let unread_count = if unread_page.has_more {
-        unread_page.items.len() as i64 + 1
-    } else {
-        unread_page.items.len() as i64
-    };
 
     let items: Vec<ArticleRow> = unread_page
         .items

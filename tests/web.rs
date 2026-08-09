@@ -245,6 +245,36 @@ async fn web_dashboard_renders() {
 }
 
 #[tokio::test]
+async fn web_dashboard_unread_count_exceeds_preview_page_size() {
+    // The dashboard's preview list is capped at 10 items; unread_count must
+    // report the true total, not len(preview) + 1.
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+
+    for i in 0..15 {
+        insert_article(
+            &pool,
+            &format!("https://example.com/post-{}", i),
+            &format!("Post {}", i),
+            feed_id,
+        )
+        .await;
+    }
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/"))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("15 unread articles"), "html: {html}");
+}
+
+#[tokio::test]
 async fn web_dashboard_renders_with_login_cookie() {
     let (app, _pool, _dir) = common::app_with_db().await;
     create_user(&app, "cookie@example.com", "Password123!").await;

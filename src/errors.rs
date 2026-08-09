@@ -27,7 +27,7 @@ pub enum AppError {
     #[error("database error")]
     Database(#[from] sqlx::Error),
 
-    #[error("internal error")]
+    #[error("internal error: {0}")]
     Internal(String),
 
     #[error(transparent)]

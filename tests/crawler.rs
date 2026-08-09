@@ -201,6 +201,67 @@ async fn fetch_rss_feed_stores_articles_and_read_states() {
 }
 
 #[tokio::test]
+async fn fetch_atom_feed_with_namespace_declared_stores_articles() {
+    // Atom feeds declare xmlns="http://www.w3.org/2005/Atom" on the root
+    // <feed> element; content_type_hint must not mistake that namespace URI
+    // for an RSS <atom:link> self-reference and misroute to parse_rss.
+    let atom = r#"<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Atom</title>
+  <link rel="alternate" href="https://example.com"/>
+  <entry>
+    <title>First Entry</title>
+    <link rel="alternate" href="https://example.com/first"/>
+    <summary>The first entry.</summary>
+    <updated>2024-01-01T00:00:00Z</updated>
+  </entry>
+</feed>
+"#;
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "user@example.com", "Password123!").await;
+    let token = login(&app, "user@example.com", "Password123!").await;
+
+    let addr = mock_feed_server(atom).await;
+    let feed_url = format!("http://{}/feed.xml", addr);
+
+    let body = json!({"url": feed_url});
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "POST",
+            "/api/v1/feeds",
+            Body::from(body.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let created: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let feed_id = created["id"].as_i64().unwrap();
+
+    let crawler = make_crawler(&pool);
+    crawler
+        .fetch_feed(FeedRow {
+            id: feed_id,
+            url: feed_url,
+            last_etag: None,
+            last_modified: None,
+        })
+        .await
+        .unwrap();
+
+    let article = sqlx::query!(
+        "SELECT title FROM articles WHERE url = ?",
+        "https://example.com/first"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(article.title, "First Entry");
+}
+
+#[tokio::test]
 async fn duplicate_article_url_upserts_existing_row() {
     let rss = r#"<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">

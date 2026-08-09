@@ -445,10 +445,7 @@ enum FeedType {
 fn content_type_hint(text: &str) -> FeedType {
     let trimmed = text.trim_start();
     if trimmed.starts_with("<?xml") {
-        if trimmed.contains("<rss")
-            || trimmed.contains("<channel")
-            || trimmed.contains("http://www.w3.org/2005/Atom")
-        {
+        if trimmed.contains("<rss") || trimmed.contains("<channel") {
             return FeedType::Rss;
         }
         if trimmed.contains("<feed") {

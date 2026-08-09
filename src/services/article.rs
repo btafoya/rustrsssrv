@@ -29,6 +29,31 @@ impl ArticleService {
         Self { pool }
     }
 
+    pub async fn count_unread(&self, user_id: i64) -> Result<i64> {
+        let row = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as "count!: i64"
+            FROM articles a
+            JOIN article_feeds af ON af.article_id = a.id
+            JOIN subscriptions s ON s.feed_id = af.feed_id AND s.user_id = ?
+            LEFT JOIN read_states rs ON rs.article_id = a.id AND rs.user_id = ?
+            WHERE af.feed_id = (
+                SELECT MIN(af2.feed_id)
+                FROM article_feeds af2
+                JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?
+                WHERE af2.article_id = a.id
+            )
+            AND COALESCE(rs.is_read, 0) = 0
+            "#,
+            user_id,
+            user_id,
+            user_id
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.count)
+    }
+
     pub async fn list(&self, user_id: i64, query: ListArticlesQuery) -> Result<ArticlePage> {
         let newest_first = query.is_newest_first() as i32;
         let limit = query.limit.unwrap_or(20).clamp(1, 100);
