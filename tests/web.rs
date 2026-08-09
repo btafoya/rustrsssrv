@@ -337,6 +337,89 @@ async fn web_articles_filter_starred() {
 }
 
 #[tokio::test]
+async fn web_articles_legacy_is_read_empty_shows_all() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+
+    let article_id = insert_article(&pool, "https://example.com/post", "Any Post", feed_id).await;
+    // Mark it read so it would be hidden under the default unread filter.
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/articles/{}/read", article_id))
+                .header("Authorization", format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+    // Legacy URL with empty is_read should show all articles.
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/articles?is_read=&sort=oldest_first"))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("Any Post"));
+}
+
+#[tokio::test]
+async fn web_articles_legacy_is_read_bool() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+
+    let read_id = insert_article(&pool, "https://example.com/read", "Read Post", feed_id).await;
+    let _unread_id =
+        insert_article(&pool, "https://example.com/unread", "Unread Post", feed_id).await;
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/articles/{}/read", read_id))
+                .header("Authorization", format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/articles?is_read=true"))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("Read Post"));
+    assert!(!html.contains("Unread Post"));
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/articles?is_read=false"))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(html.contains("Unread Post"));
+    assert!(!html.contains("Read Post"));
+}
+
+#[tokio::test]
 async fn web_articles_default_filter_starred() {
     let (app, pool, _dir) = common::app_with_db().await;
     create_user(&app, "web@example.com", "Password123!").await;

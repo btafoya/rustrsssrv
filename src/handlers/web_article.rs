@@ -13,9 +13,29 @@ use crate::state::AppState;
 pub struct ArticleListWebQuery {
     pub feed_id: Option<i64>,
     pub filter: Option<String>,
+    // Legacy bool parameters kept for backward compatibility with bookmarks/old links.
+    pub is_read: Option<String>,
+    pub is_starred: Option<String>,
     pub sort: Option<String>,
     pub cursor: Option<i64>,
     pub limit: Option<i64>,
+}
+
+impl ArticleListWebQuery {
+    fn filter_from_legacy(&self) -> Option<String> {
+        if let Some(v) = &self.is_read {
+            return Some(match v.as_str() {
+                "" | "all" => "all".into(),
+                "true" => "read".into(),
+                "false" => "unread".into(),
+                _ => "all".into(),
+            });
+        }
+        if self.is_starred.as_deref() == Some("true") {
+            return Some("starred".into());
+        }
+        None
+    }
 }
 
 #[derive(Template)]
@@ -90,7 +110,11 @@ pub async fn article_list_page(
 ) -> WebResult<Response> {
     let user = state.users.get_by_id(user_id).await?;
 
-    let filter = params.filter.unwrap_or_else(|| user.default_filter.clone());
+    let filter = params
+        .filter
+        .clone()
+        .or_else(|| params.filter_from_legacy())
+        .unwrap_or_else(|| user.default_filter.clone());
     let (is_read, is_starred) = match filter.as_str() {
         "all" => (None, None),
         "unread" => (Some(false), None),
