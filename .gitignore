@@ -15,3 +15,4 @@ node_modules
 .serena/
 *.png
 CLAUDE.md
+*.rss
