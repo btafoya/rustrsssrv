@@ -4,7 +4,17 @@
 
 {% block content %}
 <article class="bg-white rounded-lg shadow p-8">
-    <h1 class="text-3xl font-bold mb-2">{{ title }}</h1>
+    <div class="flex items-start justify-between mb-2">
+        <h1 class="text-3xl font-bold">{{ title }}</h1>
+        <button
+            type="button"
+            class="star-toggle ml-4 flex-shrink-0 focus:outline-none"
+            data-article-id="{{ id }}"
+            data-starred="{{ is_starred }}"
+            aria-label="{% if is_starred %}Unstar{% else %}Star{% endif %} article"
+        >
+        </button>
+    </div>
     <div class="text-sm text-gray-600 mb-6">
         {% if let Some(feed_title) = feed_title %}
         <span class="font-medium">{{ feed_title }}</span>

@@ -3,32 +3,22 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use comrak::{Options, markdown_to_html};
-use regex::Regex;
-use std::sync::LazyLock;
 
 use crate::errors::AppError;
-use crate::handlers::{AuthUser, WebResult};
+use crate::handlers::{AuthUser, WebResult, strip_html_tags};
 use crate::models::ListArticlesQuery;
 use crate::state::AppState;
-
-static HTML_TAG_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]+>").unwrap());
-
-fn strip_html_tags(html: &str) -> String {
-    HTML_TAG_RE
-        .replace_all(html, "")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
 
 #[derive(Template)]
 #[template(path = "article.html")]
 struct ArticleTemplate {
+    id: i64,
     title: String,
     url: String,
     feed_title: Option<String>,
     published_at: Option<String>,
     html_content: String,
+    is_starred: bool,
 }
 
 #[derive(Template)]
@@ -47,6 +37,7 @@ struct ArticleRow {
     feed_title: Option<String>,
     published_at: Option<String>,
     is_read: bool,
+    is_starred: bool,
 }
 
 pub async fn article_page(
@@ -67,11 +58,13 @@ pub async fn article_page(
     let published_at = article.published_at.map(|d| d.to_rfc2822());
 
     let tpl = ArticleTemplate {
+        id: article.id,
         title: article.title,
         url: article.url,
         feed_title: article.feed_title,
         published_at,
         html_content,
+        is_starred: article.is_starred,
     };
 
     Ok(Html(
@@ -120,6 +113,7 @@ pub async fn article_list_page(
             feed_title: a.feed_title,
             published_at: a.published_at.map(|d| d.to_rfc2822()),
             is_read: a.is_read,
+            is_starred: a.is_starred,
         })
         .collect();
 

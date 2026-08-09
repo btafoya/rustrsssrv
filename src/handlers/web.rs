@@ -3,7 +3,7 @@ use axum::extract::{Query, State};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 
 use crate::errors::AppError;
-use crate::handlers::{AuthUser, WebError, WebResult};
+use crate::handlers::{AuthUser, WebError, WebResult, strip_html_tags};
 use crate::models::ListArticlesQuery;
 use crate::state::AppState;
 
@@ -30,6 +30,7 @@ struct ArticleRow {
     feed_title: Option<String>,
     published_at: Option<String>,
     is_read: bool,
+    is_starred: bool,
 }
 
 #[derive(Template)]
@@ -97,10 +98,11 @@ pub async fn dashboard(
         .map(|a| ArticleRow {
             id: a.id,
             title: a.title,
-            summary: a.summary,
+            summary: a.summary.as_deref().map(strip_html_tags),
             feed_title: a.feed_title,
             published_at: a.published_at.map(|d| d.to_rfc2822()),
             is_read: a.is_read,
+            is_starred: a.is_starred,
         })
         .collect();
 
@@ -136,10 +138,11 @@ pub async fn search_page(
             .map(|a| ArticleRow {
                 id: a.id,
                 title: a.title,
-                summary: a.summary,
+                summary: a.summary.as_deref().map(strip_html_tags),
                 feed_title: a.feed_title,
                 published_at: a.published_at.map(|d| d.to_rfc2822()),
                 is_read: a.is_read,
+                is_starred: a.is_starred,
             })
             .collect()
     };

@@ -25,6 +25,17 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::errors::AppError;
 use crate::state::AppState;
 
+pub fn strip_html_tags(html: &str) -> String {
+    use regex::Regex;
+    use std::sync::LazyLock;
+    static HTML_TAG_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]+>").unwrap());
+    HTML_TAG_RE
+        .replace_all(html, "")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 pub fn build_app(state: AppState) -> Router {
     let api = Router::new()
         .route("/auth/login", post(auth::login))
