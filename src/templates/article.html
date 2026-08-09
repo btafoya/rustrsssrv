@@ -4,6 +4,10 @@
 
 {% block content %}
 <article class="bg-white rounded-lg shadow p-8">
+    <div class="mb-4 flex items-center space-x-4">
+        <a href="{{ url }}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">Open original</a>
+        <a href="/articles" class="text-gray-600 hover:text-gray-900">← Back to articles</a>
+    </div>
     <div class="flex items-start justify-between mb-2">
         <h1 class="text-3xl font-bold">{{ title }}</h1>
         <button
