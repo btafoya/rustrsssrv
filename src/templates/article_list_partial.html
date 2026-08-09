@@ -3,11 +3,16 @@
     <div class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition relative">
         <button
             type="button"
-            class="star-toggle absolute top-4 right-4 focus:outline-none"
+            class="star-toggle absolute top-4 right-4 focus:outline-none {% if item.is_starred %}text-orange-500{% else %}text-gray-400{% endif %}"
             data-article-id="{{ item.id }}"
             data-starred="{{ item.is_starred }}"
             aria-label="{% if item.is_starred %}Unstar{% else %}Star{% endif %} article"
         >
+            {% if item.is_starred %}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            {% else %}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            {% endif %}
         </button>
         <a href="/articles/{{ item.id }}" class="block pr-8">
             <div class="flex items-start justify-between">
