@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+if ! id rustrsssrv >/dev/null 2>&1; then
+    adduser --system --group --home /opt/rustrsssrv --shell /usr/sbin/nologin rustrsssrv
+fi
+
+mkdir -p /opt/rustrsssrv/data /opt/rustrsssrv/logs
+
+if [ ! -f /opt/rustrsssrv/.env ]; then
+    JWT_SECRET="$(openssl rand -hex 32)"
+    cat > /opt/rustrsssrv/.env <<EOF
+DATABASE_URL=sqlite:./data/rustrsssrv.db
+JWT_SECRET=$JWT_SECRET
+PORT=9119
+ENABLE_CRAWLER=true
+LOG_DIR=./logs
+RUST_LOG=info
+EOF
+    chmod 600 /opt/rustrsssrv/.env
+fi
+
+chown -R rustrsssrv:rustrsssrv /opt/rustrsssrv
+
+#DEBHELPER#

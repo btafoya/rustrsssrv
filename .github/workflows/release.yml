@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      SQLX_OFFLINE: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb --locked --version ^3
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Build .deb package
+        run: cargo deb --no-build
+
+      - name: Package binary tarball
+        run: |
+          mkdir -p pkg
+          cp target/release/rustrsssrv pkg/
+          cp deploy/rustrsssrv.service pkg/
+          tar czf rustrsssrv-x86_64-linux.tar.gz -C pkg .
+
+      - name: Checksums
+        run: sha256sum rustrsssrv-x86_64-linux.tar.gz target/debian/*.deb > SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            rustrsssrv-x86_64-linux.tar.gz \
+            target/debian/*.deb \
+            SHA256SUMS

@@ -1,0 +1,22 @@
+[Unit]
+Description=rustrsssrv RSS aggregation server
+After=network.target
+
+[Service]
+Type=simple
+User=rustrsssrv
+Group=rustrsssrv
+WorkingDirectory=/opt/rustrsssrv
+EnvironmentFile=/opt/rustrsssrv/.env
+ExecStart=/opt/rustrsssrv/rustrsssrv
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/rustrsssrv/data /opt/rustrsssrv/logs
+
+[Install]
+WantedBy=multi-user.target

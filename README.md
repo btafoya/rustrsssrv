@@ -145,6 +145,35 @@ curl "http://localhost:9119/api/v1/search?q=rust&limit=10" \
 
 The in-process crawler polls subscribed feeds every 15 minutes by default. Feed-specific intervals can be set to `5`, `15`, `30`, `60`, `120`, `240`, `720`, or `1440` minutes. Enable the crawler with `ENABLE_CRAWLER=true`. Without it, the server serves stored articles but does not fetch new content.
 
+## Deployment (systemd, Ubuntu 22.04)
+
+Three ways to install, all producing the same layout: binary + `.env` + data/logs under `/opt/rustrsssrv`, managed by the `rustrsssrv` systemd unit.
+
+**One-line install (no checkout needed)** — downloads the latest release from GitHub:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/btafoya/rustrsssrv/main/install.sh | sudo bash
+```
+
+**`.deb` package** — download `rustrsssrv_<version>_amd64.deb` from the [latest release](https://github.com/btafoya/rustrsssrv/releases/latest) and install it. The user, `.env`, and systemd unit are set up by the package's postinst script:
+
+```bash
+sudo dpkg -i rustrsssrv_*_amd64.deb
+```
+
+**From a local checkout** — after building the release binary (`npm run build:all`):
+
+```bash
+sudo ./deploy/install.sh
+```
+
+All three create a `rustrsssrv` system user, generate `/opt/rustrsssrv/.env` with a random `JWT_SECRET` (if one doesn't already exist), and enable/start the `rustrsssrv` systemd unit. Re-running any of them deploys an updated binary without overwriting an existing `.env`.
+
+```bash
+systemctl status rustrsssrv
+journalctl -u rustrsssrv -f
+```
+
 ## Development
 
 Install npm dependencies and build assets before running or testing:

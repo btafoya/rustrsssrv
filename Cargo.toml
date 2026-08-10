@@ -3,6 +3,9 @@ name = "rustrsssrv"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
+description = "Self-hosted RSS aggregation server"
+license = "MIT"
+repository = "https://github.com/btafoya/rustrsssrv"
 
 [dependencies]
 askama = "0.12"
@@ -50,3 +53,20 @@ urlencoding = "2"
 opt-level = 3
 lto = "thin"
 codegen-units = 1
+
+[package.metadata.deb]
+maintainer = "Brian Tafoya <btafoya@briantafoya.com>"
+copyright = "2026, Brian Tafoya"
+license-file = ["LICENSE", "0"]
+extended-description = "Self-hosted RSS aggregation server with a built-in web UI, background feed crawler, and REST API."
+section = "net"
+priority = "optional"
+assets = [
+    ["target/release/rustrsssrv", "opt/rustrsssrv/rustrsssrv", "755"],
+]
+maintainer-scripts = "debian/"
+
+[package.metadata.deb.systemd-units]
+unit-scripts = "deploy/"
+enable = true
+start = true
