@@ -1,6 +1,7 @@
 /target
 /data
 /logs
+/backups
 .env
 *.db
 *.db-shm
