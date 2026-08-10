@@ -78,13 +78,14 @@ To generate a strong `JWT_SECRET` by hand: `openssl rand -hex 32`.
 ## Backup and Restore
 
 The database runs in WAL mode, so a plain `cp` of the `.db` file can miss data still sitting
-in the `-wal` file. Use `sqlite3 .backup` instead, wrapped by `deploy/backup.sh` — safe to run
-against a live server.
+in the `-wal` file. Use `sqlite3 .backup` instead — every installer above (curl install, `.deb`,
+`deploy/install.sh`) puts wrapper scripts at `/opt/rustrsssrv/backup.sh` and
+`/opt/rustrsssrv/restore.sh`, safe to run against a live server.
 
-Back up (on the production server, or copy the scripts there first):
+Back up:
 
 ```bash
-sudo ./deploy/backup.sh
+sudo /opt/rustrsssrv/backup.sh
 # writes /opt/rustrsssrv/backups/rustrsssrv-<timestamp>.db (+ .sha256)
 ```
 
@@ -93,13 +94,13 @@ Copy the backup to wherever you're restoring it, then restore in place — this 
 to report OK:
 
 ```bash
-sudo ./deploy/restore.sh /opt/rustrsssrv/backups/rustrsssrv-<timestamp>.db
+sudo /opt/rustrsssrv/restore.sh /opt/rustrsssrv/backups/rustrsssrv-<timestamp>.db
 ```
 
 `restore.sh` verifies the backup's checksum and integrity before touching anything, and saves
 the database it's replacing as `<db>.pre-restore-<timestamp>` in case you need to roll back.
 Both scripts default to `/opt/rustrsssrv`; pass an install directory as the second argument to
-target a different location (e.g. `.` for a local dev checkout).
+target a different location (e.g. a local dev checkout, where they live in `deploy/`).
 
 ## Running Without systemd
 

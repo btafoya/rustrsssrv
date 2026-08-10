@@ -63,6 +63,8 @@ section = "net"
 priority = "optional"
 assets = [
     ["target/release/rustrsssrv", "opt/rustrsssrv/rustrsssrv", "755"],
+    ["deploy/backup.sh", "opt/rustrsssrv/backup.sh", "755"],
+    ["deploy/restore.sh", "opt/rustrsssrv/restore.sh", "755"],
 ]
 maintainer-scripts = "debian/"
 

@@ -26,6 +26,8 @@ fi
 
 mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/logs"
 install -m 755 "$BINARY" "$INSTALL_DIR/rustrsssrv"
+install -m 755 "$SCRIPT_DIR/backup.sh" "$INSTALL_DIR/backup.sh"
+install -m 755 "$SCRIPT_DIR/restore.sh" "$INSTALL_DIR/restore.sh"
 
 ENV_FILE="$INSTALL_DIR/.env"
 if [[ ! -f "$ENV_FILE" ]]; then

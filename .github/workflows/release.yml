@@ -40,6 +40,7 @@ jobs:
           mkdir -p pkg
           cp target/release/rustrsssrv pkg/
           cp deploy/rustrsssrv.service pkg/
+          cp deploy/backup.sh deploy/restore.sh pkg/
           tar czf rustrsssrv-x86_64-linux.tar.gz -C pkg .
 
       - name: Checksums
