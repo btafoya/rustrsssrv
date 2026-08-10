@@ -75,6 +75,32 @@ The installers above write `/opt/rustrsssrv/.env` for you. Its variables, all re
 
 To generate a strong `JWT_SECRET` by hand: `openssl rand -hex 32`.
 
+## Backup and Restore
+
+The database runs in WAL mode, so a plain `cp` of the `.db` file can miss data still sitting
+in the `-wal` file. Use `sqlite3 .backup` instead, wrapped by `deploy/backup.sh` — safe to run
+against a live server.
+
+Back up (on the production server, or copy the scripts there first):
+
+```bash
+sudo ./deploy/backup.sh
+# writes /opt/rustrsssrv/backups/rustrsssrv-<timestamp>.db (+ .sha256)
+```
+
+Copy the backup to wherever you're restoring it, then restore in place — this stops the
+`rustrsssrv` service, swaps the database file, restarts the service, and waits for `/health`
+to report OK:
+
+```bash
+sudo ./deploy/restore.sh /opt/rustrsssrv/backups/rustrsssrv-<timestamp>.db
+```
+
+`restore.sh` verifies the backup's checksum and integrity before touching anything, and saves
+the database it's replacing as `<db>.pre-restore-<timestamp>` in case you need to roll back.
+Both scripts default to `/opt/rustrsssrv`; pass an install directory as the second argument to
+target a different location (e.g. `.` for a local dev checkout).
+
 ## Running Without systemd
 
 For local testing, or after a [source build](#build-from-source) if you don't want it installed as a service:
