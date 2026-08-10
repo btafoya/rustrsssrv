@@ -34,7 +34,7 @@ pub struct ArticleInput {
     pub published_at: Option<i64>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct ListArticlesQuery {
     pub feed_id: Option<i64>,
     pub is_read: Option<bool>,
@@ -43,6 +43,30 @@ pub struct ListArticlesQuery {
     pub cursor: Option<i64>,
     pub direction: Option<String>,
     pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BulkAction {
+    Read,
+    Unread,
+    Star,
+    Unstar,
+    Hide,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct BulkArticlesRequest {
+    pub action: BulkAction,
+    /// Explicit article IDs to act on. Mutually exclusive with `filter`.
+    pub article_ids: Option<Vec<i64>>,
+    /// Act on every article matching this filter instead of an explicit ID list.
+    pub filter: Option<ListArticlesQuery>,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct BulkArticlesResult {
+    pub affected: i64,
 }
 
 impl ListArticlesQuery {

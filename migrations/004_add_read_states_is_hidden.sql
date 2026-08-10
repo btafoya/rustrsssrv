@@ -1,0 +1,1 @@
+ALTER TABLE read_states ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;

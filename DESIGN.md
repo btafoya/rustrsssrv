@@ -128,6 +128,7 @@ CREATE TABLE read_states (
     read_at INTEGER,
     is_starred INTEGER NOT NULL DEFAULT 0,
     starred_at INTEGER,
+    is_hidden INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
     UNIQUE (user_id, article_id)
@@ -254,14 +255,19 @@ Article lists additionally accept `direction` (`next`, the default, or `prev`) t
 - `cursor` / `limit` (default 20, max 100).
 - `direction` — `next` (default) or `prev`.
 
+Articles hidden by the current user (`read_states.is_hidden`) are always excluded, regardless of the filters above; hiding is permanent for v1 (no restore).
+
+### Bulk article actions
+
+`POST /api/v1/articles/bulk` applies `read`/`unread`/`star`/`unstar`/`hide` to many articles in one call. Body is `{ action, article_ids }` or `{ action, filter }` (`filter` uses the same shape as the article list query parameters, minus pagination) — exactly one of `article_ids`/`filter` must be given. Each resolved article ID is still subscription-checked the same way the single-article endpoints are, so an ID outside the caller's subscriptions yields `404`. Response is `{ "affected": <count> }`.
+
 ### Web routes (server-side pages)
 
 - `GET /setup` — first-user creation form (disabled once a user exists).
 - `GET /login` — login page.
-- `GET /` — dashboard / unified article stream.
+- `GET /` — dashboard: unread-count summary plus the article list, with filter/sort and Previous/Next pagination. `GET /articles` permanently redirects here (query string preserved) for old links.
 - `GET /feeds` — subscription list.
 - `GET /feeds/:id` — feed detail and its articles.
-- `GET /articles` — article list with filter/sort and Previous/Next pagination.
 - `GET /articles/:id` — article reader.
 - `GET /search` — search results.
 - `GET /settings` — user preferences.

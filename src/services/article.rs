@@ -2,7 +2,7 @@ use chrono::Utc;
 use sqlx::SqlitePool;
 
 use crate::errors::{AppError, Result};
-use crate::models::{Article, ArticlePage, ListArticlesQuery};
+use crate::models::{Article, ArticlePage, BulkAction, ListArticlesQuery};
 
 #[derive(sqlx::FromRow)]
 struct SearchRow {
@@ -44,6 +44,7 @@ impl ArticleService {
                 WHERE af2.article_id = a.id
             )
             AND COALESCE(rs.is_read, 0) = 0
+            AND COALESCE(rs.is_hidden, 0) = 0
             "#,
             user_id,
             user_id,
@@ -100,6 +101,7 @@ impl ArticleService {
                 JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?
                 WHERE af2.article_id = a.id
             )
+            AND COALESCE(rs.is_hidden, 0) = 0
             AND (
                 ? IS NULL OR
                 CASE WHEN ? = 1
@@ -251,6 +253,7 @@ impl ArticleService {
                     JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?
                     WHERE af2.article_id = a.id
                 )
+                AND COALESCE(rs.is_hidden, 0) = 0
                 AND (
                     CASE WHEN ? = 1
                         THEN (COALESCE(a.published_at, a.fetched_at), a.id)
@@ -447,6 +450,107 @@ impl ArticleService {
         Ok(())
     }
 
+    pub async fn mark_hidden(&self, user_id: i64, article_id: i64) -> Result<()> {
+        self.verify_subscription(user_id, article_id).await?;
+        let now = Utc::now().timestamp_millis();
+        sqlx::query!(
+            r#"
+            INSERT INTO read_states (user_id, article_id, is_hidden, created_at, updated_at)
+            VALUES (?, ?, 1, ?, ?)
+            ON CONFLICT(user_id, article_id) DO UPDATE SET
+                is_hidden = 1,
+                updated_at = excluded.updated_at
+            "#,
+            user_id,
+            article_id,
+            now,
+            now
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn ids_matching_filter(
+        &self,
+        user_id: i64,
+        query: &ListArticlesQuery,
+    ) -> Result<Vec<i64>> {
+        let is_read_filter = match query.is_read {
+            Some(true) => Some(1),
+            Some(false) => Some(0),
+            None => None,
+        };
+        let is_starred_filter = match query.is_starred {
+            Some(true) => Some(1),
+            Some(false) => Some(0),
+            None => None,
+        };
+        let rows = sqlx::query!(
+            r#"
+            SELECT a.id as "id!"
+            FROM articles a
+            JOIN article_feeds af ON af.article_id = a.id
+            JOIN subscriptions s ON s.feed_id = af.feed_id AND s.user_id = ?
+            LEFT JOIN read_states rs ON rs.article_id = a.id AND rs.user_id = ?
+            WHERE af.feed_id = (
+                SELECT MIN(af2.feed_id)
+                FROM article_feeds af2
+                JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?
+                WHERE af2.article_id = a.id
+            )
+            AND COALESCE(rs.is_hidden, 0) = 0
+            AND (? IS NULL OR af.feed_id = ?)
+            AND (? IS NULL OR rs.is_read = ?)
+            AND (? IS NULL OR rs.is_starred = ?)
+            "#,
+            user_id,
+            user_id,
+            user_id,
+            query.feed_id,
+            query.feed_id,
+            is_read_filter,
+            is_read_filter,
+            is_starred_filter,
+            is_starred_filter,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.id).collect())
+    }
+
+    /// Applies `action` to every article in `article_ids`, or every article
+    /// matching `filter` when `article_ids` is not supplied. Exactly one of
+    /// the two must be given; each ID is independently subscription-checked
+    /// via the existing single-article mark_* methods.
+    pub async fn bulk_apply(
+        &self,
+        user_id: i64,
+        action: BulkAction,
+        article_ids: Option<Vec<i64>>,
+        filter: Option<ListArticlesQuery>,
+    ) -> Result<i64> {
+        let ids = match (article_ids, filter) {
+            (Some(ids), None) if !ids.is_empty() => ids,
+            (None, Some(filter)) => self.ids_matching_filter(user_id, &filter).await?,
+            _ => {
+                return Err(AppError::BadRequest(
+                    "provide exactly one of article_ids or filter".into(),
+                ));
+            }
+        };
+        for id in &ids {
+            match action {
+                BulkAction::Read => self.mark_read(user_id, *id).await?,
+                BulkAction::Unread => self.mark_unread(user_id, *id).await?,
+                BulkAction::Star => self.mark_starred(user_id, *id).await?,
+                BulkAction::Unstar => self.mark_unstarred(user_id, *id).await?,
+                BulkAction::Hide => self.mark_hidden(user_id, *id).await?,
+            }
+        }
+        Ok(ids.len() as i64)
+    }
+
     pub async fn search(&self, user_id: i64, q: &str, limit: i64) -> Result<ArticlePage> {
         let limit = limit.clamp(1, 100);
         // The sqlx compile-time checked macro returns empty rows when MATCH is
@@ -480,6 +584,7 @@ impl ArticleService {
                 JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?
                 WHERE af2.article_id = a.id
             )
+            AND COALESCE(rs.is_hidden, 0) = 0
             ORDER BY rank
             LIMIT ?
             "#,

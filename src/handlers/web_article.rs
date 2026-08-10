@@ -1,7 +1,7 @@
 use askama::Template;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, Query, RawQuery, State};
 use axum::http::StatusCode;
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Redirect, Response};
 use comrak::{Options, markdown_to_html};
 
 use crate::errors::AppError;
@@ -63,6 +63,8 @@ struct ArticleListTemplate {
     sort: String,
     next_cursor: Option<i64>,
     prev_cursor: Option<i64>,
+    unread_count: i64,
+    feed_count: i64,
 }
 
 struct FeedOption {
@@ -124,9 +126,14 @@ pub async fn article_page(
 
 pub async fn article_list_page(
     State(state): State<AppState>,
-    AuthUser(user_id): AuthUser,
+    auth_user: Option<AuthUser>,
     Query(params): Query<ArticleListWebQuery>,
 ) -> WebResult<Response> {
+    if state.users.count().await? == 0 {
+        return Ok(Redirect::to("/setup").into_response());
+    }
+    let AuthUser(user_id) = auth_user.ok_or(AppError::Unauthorized)?;
+
     let user = state.users.get_by_id(user_id).await?;
 
     let feed_id = match params.feed_id.as_deref() {
@@ -206,7 +213,8 @@ pub async fn article_list_page(
         })
         .collect();
 
-    let feed_page = state.feeds.list(user_id, None, 100).await?;
+    let feed_page = state.feeds.list(user_id, None, 1000).await?;
+    let feed_count = feed_page.items.len() as i64;
     let mut feeds: Vec<FeedOption> = feed_page
         .items
         .into_iter()
@@ -218,6 +226,8 @@ pub async fn article_list_page(
         .collect();
     feeds.sort_by(|a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase()));
 
+    let unread_count = state.articles.count_unread(user_id).await?;
+
     let tpl = ArticleListTemplate {
         items: rows,
         feeds,
@@ -226,12 +236,21 @@ pub async fn article_list_page(
         sort,
         next_cursor: page.next_cursor,
         prev_cursor: page.prev_cursor,
+        unread_count,
+        feed_count,
     };
     Ok(Html(
         tpl.render()
             .map_err(|e| AppError::Internal(e.to_string()))?,
     )
     .into_response())
+}
+
+pub async fn redirect_to_dashboard(RawQuery(query): RawQuery) -> impl IntoResponse {
+    match query {
+        Some(q) if !q.is_empty() => Redirect::permanent(&format!("/?{q}")),
+        _ => Redirect::permanent("/"),
+    }
 }
 
 pub async fn not_found_page() -> impl IntoResponse {

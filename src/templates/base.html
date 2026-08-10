@@ -13,7 +13,6 @@
                 <a href="/" class="text-xl font-bold text-gray-900">Rust RSS</a>
                 <div class="flex items-center space-x-4">
                     <a href="/" class="text-gray-700 hover:text-gray-900">Dashboard</a>
-                    <a href="/articles" class="text-gray-700 hover:text-gray-900">Articles</a>
                     <a href="/feeds" class="text-gray-700 hover:text-gray-900">Feeds</a>
                     <a href="/search" class="text-gray-700 hover:text-gray-900">Search</a>
                     <a href="/settings" class="text-gray-700 hover:text-gray-900">Settings</a>
@@ -27,6 +26,7 @@
     </main>
     <script src="/static/js/jquery.min.js"></script>
     <script src="/static/js/star.js"></script>
+    <script src="/static/js/bulk-actions.js"></script>
     <script>
         document.getElementById('logout')?.addEventListener('click', async () => {
             const token = localStorage.getItem('refresh_token');

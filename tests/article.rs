@@ -667,12 +667,7 @@ async fn article_list_page_saves_explicit_filter_but_not_legacy_params() {
     // Legacy bookmark-style param must not overwrite the saved default.
     let res = app
         .clone()
-        .oneshot(auth_request(
-            &token,
-            "GET",
-            "/articles?is_read=true",
-            Body::empty(),
-        ))
+        .oneshot(auth_request(&token, "GET", "/?is_read=true", Body::empty()))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -697,7 +692,7 @@ async fn article_list_page_saves_explicit_filter_but_not_legacy_params() {
         .oneshot(auth_request(
             &token,
             "GET",
-            "/articles?filter=starred&sort=newest_first",
+            "/?filter=starred&sort=newest_first",
             Body::empty(),
         ))
         .await
@@ -760,4 +755,198 @@ async fn search_matches_subscribed_articles() {
     let items = page["items"].as_array().unwrap();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["id"], matched_id);
+}
+
+#[tokio::test]
+async fn bulk_mark_read_by_ids() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "bulk-reader@example.com", "Password123!").await;
+    let token = login(&app, "bulk-reader@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+    let id1 = insert_article(&pool, "https://example.com/bulk-1", "Bulk One", feed_id).await;
+    let id2 = insert_article(&pool, "https://example.com/bulk-2", "Bulk Two", feed_id).await;
+    let id3 = insert_article(&pool, "https://example.com/bulk-3", "Bulk Three", feed_id).await;
+
+    let body = json!({"action": "read", "article_ids": [id1, id2]});
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "POST",
+            "/api/v1/articles/bulk",
+            Body::from(body.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let result: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(result["affected"], 2);
+
+    for (id, expect_read) in [(id1, true), (id2, true), (id3, false)] {
+        let res = app
+            .clone()
+            .oneshot(auth_request(
+                &token,
+                "GET",
+                &format!("/api/v1/articles/{}", id),
+                Body::empty(),
+            ))
+            .await
+            .unwrap();
+        let bytes = res.into_body().collect().await.unwrap().to_bytes();
+        let article: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(article["is_read"].as_bool().unwrap(), expect_read);
+    }
+}
+
+#[tokio::test]
+async fn bulk_hide_excludes_article_from_list() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "bulk-hider@example.com", "Password123!").await;
+    let token = login(&app, "bulk-hider@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+    let hidden_id = insert_article(&pool, "https://example.com/hide-me", "Hide Me", feed_id).await;
+    let visible_id = insert_article(&pool, "https://example.com/keep-me", "Keep Me", feed_id).await;
+
+    let body = json!({"action": "hide", "article_ids": [hidden_id]});
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "POST",
+            "/api/v1/articles/bulk",
+            Body::from(body.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "GET",
+            "/api/v1/articles",
+            Body::empty(),
+        ))
+        .await
+        .unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let page: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let ids: Vec<i64> = page["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| a["id"].as_i64().unwrap())
+        .collect();
+    assert!(!ids.contains(&hidden_id));
+    assert!(ids.contains(&visible_id));
+}
+
+#[tokio::test]
+async fn bulk_by_filter_applies_only_to_matching_articles() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "bulk-filter@example.com", "Password123!").await;
+    let token = login(&app, "bulk-filter@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+    let unread_id =
+        insert_article(&pool, "https://example.com/unread-1", "Unread One", feed_id).await;
+    let read_id = insert_article(&pool, "https://example.com/read-1", "Read One", feed_id).await;
+
+    let mark_read_uri = format!("/api/v1/articles/{}/read", read_id);
+    app.clone()
+        .oneshot(auth_request(&token, "POST", &mark_read_uri, Body::empty()))
+        .await
+        .unwrap();
+
+    let body = json!({"action": "star", "filter": {"is_read": false}});
+    let res = app
+        .clone()
+        .oneshot(auth_request(
+            &token,
+            "POST",
+            "/api/v1/articles/bulk",
+            Body::from(body.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let result: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(result["affected"], 1);
+
+    for (id, expect_starred) in [(unread_id, true), (read_id, false)] {
+        let res = app
+            .clone()
+            .oneshot(auth_request(
+                &token,
+                "GET",
+                &format!("/api/v1/articles/{}", id),
+                Body::empty(),
+            ))
+            .await
+            .unwrap();
+        let bytes = res.into_body().collect().await.unwrap().to_bytes();
+        let article: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(article["is_starred"].as_bool().unwrap(), expect_starred);
+    }
+}
+
+#[tokio::test]
+async fn bulk_requires_article_ids_or_filter() {
+    let (app, _pool, _dir) = common::app_with_db().await;
+    create_user(&app, "bulk-empty@example.com", "Password123!").await;
+    let token = login(&app, "bulk-empty@example.com", "Password123!").await;
+
+    let body = json!({"action": "read"});
+    let res = app
+        .oneshot(auth_request(
+            &token,
+            "POST",
+            "/api/v1/articles/bulk",
+            Body::from(body.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn bulk_rejects_unsubscribed_article() {
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "bulk-unsub@example.com", "Password123!").await;
+    let token = login(&app, "bulk-unsub@example.com", "Password123!").await;
+
+    let other_feed_id = sqlx::query!(
+        "INSERT INTO feeds (url, fetch_interval_minutes, next_fetch_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id",
+        "https://other.example.com/feed.xml",
+        15,
+        0,
+        0,
+        0
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .id;
+    let article_id = insert_article(
+        &pool,
+        "https://other.example.com/bulk-post",
+        "Other Bulk Post",
+        other_feed_id,
+    )
+    .await;
+
+    let body = json!({"action": "read", "article_ids": [article_id]});
+    let res = app
+        .oneshot(auth_request(
+            &token,
+            "POST",
+            "/api/v1/articles/bulk",
+            Body::from(body.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }

@@ -5,7 +5,9 @@ use serde::Deserialize;
 
 use crate::errors::Result;
 use crate::handlers::AuthUser;
-use crate::models::{Article, ArticlePage, ListArticlesQuery};
+use crate::models::{
+    Article, ArticlePage, BulkArticlesRequest, BulkArticlesResult, ListArticlesQuery,
+};
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -154,6 +156,34 @@ pub async fn mark_unstarred(
 ) -> Result<StatusCode> {
     state.articles.mark_unstarred(user_id, article_id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/articles/bulk",
+    request_body = BulkArticlesRequest,
+    responses(
+        (status = 200, description = "Bulk action applied", body = BulkArticlesResult),
+        (status = 400, description = "Bad request — provide exactly one of article_ids or filter"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "An article was not found or not in subscription"),
+        (status = 500, description = "Internal error"),
+    ),
+    tag = "Articles",
+    security(
+        ("bearer" = [])
+    )
+)]
+pub async fn bulk_update_articles(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+    Json(body): Json<BulkArticlesRequest>,
+) -> Result<Json<BulkArticlesResult>> {
+    let affected = state
+        .articles
+        .bulk_apply(user_id, body.action, body.article_ids, body.filter)
+        .await?;
+    Ok(Json(BulkArticlesResult { affected }))
 }
 
 #[utoipa::path(

@@ -120,6 +120,56 @@ async fn insert_article(pool: &sqlx::SqlitePool, url: &str, title: &str, feed_id
     article_id
 }
 
+async fn insert_article_with_published_at(
+    pool: &sqlx::SqlitePool,
+    url: &str,
+    title: &str,
+    feed_id: i64,
+    published_at: i64,
+) -> i64 {
+    let now = chrono::Utc::now().timestamp_millis();
+    let article_id = sqlx::query!(
+        r#"
+        INSERT INTO articles (url, title, markdown_content, published_at, fetched_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        RETURNING id
+        "#,
+        url,
+        title,
+        "",
+        published_at,
+        now,
+        now
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+    .id;
+
+    sqlx::query!(
+        "INSERT OR IGNORE INTO article_feeds (article_id, feed_id, first_seen_at) VALUES (?, ?, ?)",
+        article_id,
+        feed_id,
+        now
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    sqlx::query!(
+        "INSERT OR IGNORE INTO read_states (user_id, article_id, created_at, updated_at) SELECT user_id, ?, ?, ? FROM subscriptions WHERE feed_id = ?",
+        article_id,
+        now,
+        now,
+        feed_id
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    article_id
+}
+
 async fn star_article(app: &axum::Router, token: &str, article_id: i64) {
     let res = app
         .clone()
@@ -275,6 +325,42 @@ async fn web_dashboard_unread_count_exceeds_preview_page_size() {
 }
 
 #[tokio::test]
+async fn web_dashboard_sort_newest_first_orders_most_recent_first() {
+    // The dashboard is the article list now, so it follows the article list's
+    // own sort rules: oldest-first by default, newest-first via ?sort=.
+    let (app, pool, _dir) = common::app_with_db().await;
+    create_user(&app, "web@example.com", "Password123!").await;
+    let token = login(&app, "web@example.com", "Password123!").await;
+    let feed_id = subscribe(&app, &token, "https://example.com/feed.xml").await;
+
+    let base = 1_700_000_000_000_i64;
+    insert_article_with_published_at(&pool, "https://example.com/a", "Oldest", feed_id, base).await;
+    insert_article_with_published_at(&pool, "https://example.com/b", "Middle", feed_id, base + 1)
+        .await;
+    insert_article_with_published_at(&pool, "https://example.com/c", "Newest", feed_id, base + 2)
+        .await;
+
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/?sort=newest_first"))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+    // Anchor to the article card's <h2> wrapper: the page's sort dropdown
+    // also renders the literal text "Oldest first"/"Newest first", which
+    // would otherwise collide with a bare substring search.
+    let newest_pos = html.find(">Newest</h2>").expect("Newest present");
+    let middle_pos = html.find(">Middle</h2>").expect("Middle present");
+    let oldest_pos = html.find(">Oldest</h2>").expect("Oldest present");
+    assert!(
+        newest_pos < middle_pos && middle_pos < oldest_pos,
+        "expected dashboard to list articles newest-first, html: {html}"
+    );
+}
+
+#[tokio::test]
 async fn web_dashboard_renders_with_login_cookie() {
     let (app, _pool, _dir) = common::app_with_db().await;
     create_user(&app, "cookie@example.com", "Password123!").await;
@@ -320,7 +406,7 @@ async fn web_dashboard_renders_with_login_cookie() {
 }
 
 #[tokio::test]
-async fn web_articles_renders() {
+async fn web_articles_redirects_to_dashboard() {
     let (app, _pool, _dir) = common::app_with_db().await;
     create_user(&app, "web@example.com", "Password123!").await;
     let token = login(&app, "web@example.com", "Password123!").await;
@@ -330,10 +416,17 @@ async fn web_articles_renders() {
         .oneshot(auth_request(&token, "/articles"))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK);
-    let bytes = res.into_body().collect().await.unwrap().to_bytes();
-    let html = String::from_utf8(bytes.to_vec()).unwrap();
-    assert!(html.contains("Articles"));
+    assert_eq!(res.status(), StatusCode::PERMANENT_REDIRECT);
+    assert_eq!(res.headers().get("location").unwrap(), "/");
+
+    // Query string is preserved across the redirect.
+    let res = app
+        .clone()
+        .oneshot(auth_request(&token, "/articles?filter=starred"))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::PERMANENT_REDIRECT);
+    assert_eq!(res.headers().get("location").unwrap(), "/?filter=starred");
 }
 
 #[tokio::test]
@@ -355,7 +448,7 @@ async fn web_articles_filter_starred() {
 
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "/articles?filter=starred"))
+        .oneshot(auth_request(&token, "/?filter=starred"))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -381,7 +474,7 @@ async fn web_articles_filter_by_feed_and_persists_default() {
         .clone()
         .oneshot(auth_request(
             &token,
-            &format!("/articles?feed_id={}&filter=all", feed_a),
+            &format!("/?feed_id={}&filter=all", feed_a),
         ))
         .await
         .unwrap();
@@ -405,7 +498,7 @@ async fn web_articles_filter_by_feed_and_persists_default() {
     // Revisiting without a feed_id param falls back to the saved default.
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "/articles?filter=all"))
+        .oneshot(auth_request(&token, "/?filter=all"))
         .await
         .unwrap();
     let bytes = res.into_body().collect().await.unwrap().to_bytes();
@@ -416,7 +509,7 @@ async fn web_articles_filter_by_feed_and_persists_default() {
     // Explicitly picking "All Feeds" clears the saved default.
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "/articles?feed_id=&filter=all"))
+        .oneshot(auth_request(&token, "/?feed_id=&filter=all"))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -461,7 +554,7 @@ async fn web_articles_legacy_is_read_empty_shows_all() {
     // Legacy URL with empty is_read should show all articles.
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "/articles?is_read=&sort=oldest_first"))
+        .oneshot(auth_request(&token, "/?is_read=&sort=oldest_first"))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -497,7 +590,7 @@ async fn web_articles_legacy_is_read_bool() {
 
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "/articles?is_read=true"))
+        .oneshot(auth_request(&token, "/?is_read=true"))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -508,7 +601,7 @@ async fn web_articles_legacy_is_read_bool() {
 
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "/articles?is_read=false"))
+        .oneshot(auth_request(&token, "/?is_read=false"))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -552,7 +645,7 @@ async fn web_articles_default_filter_starred() {
 
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "/articles"))
+        .oneshot(auth_request(&token, "/"))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);

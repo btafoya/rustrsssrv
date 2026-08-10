@@ -1,11 +1,37 @@
 {% extends "base.html" %}
 
-{% block title %}Articles — Rust RSS Server{% endblock %}
+{% block title %}Dashboard — Rust RSS Server{% endblock %}
 
 {% block content %}
-<div class="mb-6 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">Articles</h1>
-    <form method="GET" action="/articles" class="flex items-center space-x-2">
+<div class="mb-2">
+    <h1 class="text-2xl font-bold">Dashboard</h1>
+</div>
+
+<p class="mb-4 text-gray-700">
+    {{ unread_count }} unread article{% if unread_count != 1 %}s{% endif %} across {{ feed_count }} feed{% if feed_count != 1 %}s{% endif %}.
+</p>
+
+<div
+    id="bulk-actions-bar"
+    class="mb-6 flex items-center justify-between flex-wrap gap-2"
+    data-feed-id="{% if let Some(fid) = feed_id %}{{ fid }}{% endif %}"
+    data-filter="{{ filter }}"
+>
+    <div class="flex items-center space-x-2">
+        <input type="checkbox" id="select-all-page" class="w-4 h-4" aria-label="Select all articles on this page">
+        <select id="bulk-action" class="border rounded px-2 py-1">
+            <option value="read">Mark read</option>
+            <option value="unread">Mark unread</option>
+            <option value="star">Star</option>
+            <option value="unstar">Unstar</option>
+            <option value="hide">Hide</option>
+        </select>
+        <button type="button" id="bulk-apply" class="bg-blue-600 text-white px-3 py-1 rounded">Apply</button>
+        {% if next_cursor.is_some() || prev_cursor.is_some() %}
+        <button type="button" id="select-all-matching" class="hidden text-sm text-blue-700 underline">Select all matching this filter</button>
+        {% endif %}
+    </div>
+    <form method="GET" action="/" class="flex items-center space-x-2">
         <select name="feed_id" class="border rounded px-2 py-1">
             <option value="" {% if feed_id.is_none() %}selected{% endif %}>All Feeds</option>
             {% for f in feeds %}
@@ -32,7 +58,7 @@
     <ul class="inline-flex -space-x-px text-sm">
         <li>
             {% if let Some(cursor) = prev_cursor %}
-            <a href="/articles?feed_id={% if let Some(fid) = feed_id %}{{ fid }}{% endif %}&filter={{ filter }}&sort={{ sort }}&dir=prev&cursor={{ cursor }}" class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg hover:bg-gray-100 hover:text-gray-700">
+            <a href="/?feed_id={% if let Some(fid) = feed_id %}{{ fid }}{% endif %}&filter={{ filter }}&sort={{ sort }}&dir=prev&cursor={{ cursor }}" class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg hover:bg-gray-100 hover:text-gray-700">
                 <span class="sr-only">Previous</span>
                 <svg class="w-2.5 h-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 1 1 5l4 4"/>
@@ -49,7 +75,7 @@
         </li>
         <li>
             {% if let Some(cursor) = next_cursor %}
-            <a href="/articles?feed_id={% if let Some(fid) = feed_id %}{{ fid }}{% endif %}&filter={{ filter }}&sort={{ sort }}&cursor={{ cursor }}" class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg hover:bg-gray-100 hover:text-gray-700">
+            <a href="/?feed_id={% if let Some(fid) = feed_id %}{{ fid }}{% endif %}&filter={{ filter }}&sort={{ sort }}&cursor={{ cursor }}" class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg hover:bg-gray-100 hover:text-gray-700">
                 <span class="sr-only">Next</span>
                 <svg class="w-2.5 h-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>

@@ -64,6 +64,7 @@ pub fn build_app(state: AppState) -> Router {
         .route("/articles/:articleId/unread", post(article::mark_unread))
         .route("/articles/:articleId/star", post(article::mark_starred))
         .route("/articles/:articleId/unstar", post(article::mark_unstarred))
+        .route("/articles/bulk", post(article::bulk_update_articles))
         .route("/search", get(article::search_articles))
         .route("/media/:mediaHash", get(media::get_media))
         .with_state(state.clone());
@@ -71,10 +72,10 @@ pub fn build_app(state: AppState) -> Router {
     let api_v1 = Router::new().nest("/api/v1", api);
 
     let web = Router::new()
-        .route("/", get(web::dashboard))
+        .route("/", get(web_article::article_list_page))
         .route("/login", get(web::login_page))
         .route("/setup", get(setup::setup_page).post(setup::setup_submit))
-        .route("/articles", get(web_article::article_list_page))
+        .route("/articles", get(web_article::redirect_to_dashboard))
         .route("/articles/:articleId", get(web_article::article_page))
         .route("/feeds", get(web_feed::feeds_page))
         .route("/feeds/add", post(web_feed::add_feed_submit))
@@ -133,6 +134,7 @@ pub fn build_app(state: AppState) -> Router {
         article::mark_unread,
         article::mark_starred,
         article::mark_unstarred,
+        article::bulk_update_articles,
         article::search_articles,
         media::get_media,
         health::health_check,
@@ -156,6 +158,10 @@ pub fn build_app(state: AppState) -> Router {
         crate::models::ImportedFeed,
         crate::models::Article,
         crate::models::ArticlePage,
+        crate::models::ListArticlesQuery,
+        crate::models::BulkAction,
+        crate::models::BulkArticlesRequest,
+        crate::models::BulkArticlesResult,
     )),
     security(("BearerAuth" = []))
 )]

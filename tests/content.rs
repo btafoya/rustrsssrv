@@ -401,7 +401,7 @@ async fn web_article_list_strips_html_tags_from_summary() {
 
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "GET", "/articles", Body::empty()))
+        .oneshot(auth_request(&token, "GET", "/", Body::empty()))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -508,7 +508,7 @@ async fn web_article_page_marks_article_read() {
         .oneshot(auth_request(
             &token,
             "GET",
-            "/articles?is_read=false",
+            "/?is_read=false",
             Body::empty(),
         ))
         .await
@@ -582,7 +582,7 @@ async fn web_article_list_and_detail_show_star_state() {
     // List view shows an unstarred toggle.
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "GET", "/articles", Body::empty()))
+        .oneshot(auth_request(&token, "GET", "/", Body::empty()))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -608,7 +608,7 @@ async fn web_article_list_and_detail_show_star_state() {
     // List view now shows a starred toggle (article is still unread).
     let res = app
         .clone()
-        .oneshot(auth_request(&token, "GET", "/articles", Body::empty()))
+        .oneshot(auth_request(&token, "GET", "/", Body::empty()))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);

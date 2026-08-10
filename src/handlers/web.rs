@@ -1,26 +1,15 @@
 use askama::Template;
 use axum::extract::{Query, State};
-use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum::response::{Html, IntoResponse, Response};
 
 use crate::errors::AppError;
-use crate::handlers::{AuthUser, WebError, WebResult, strip_html_tags};
-use crate::models::ListArticlesQuery;
+use crate::handlers::{AuthUser, WebResult, strip_html_tags};
 use crate::state::AppState;
 
 #[derive(Template)]
 #[template(path = "login.html")]
 struct LoginTemplate {
     next: String,
-}
-
-#[derive(Template)]
-#[template(path = "dashboard.html")]
-struct DashboardTemplate {
-    email: String,
-    timezone: String,
-    unread_count: i64,
-    feed_count: i64,
-    items: Vec<ArticleRow>,
 }
 
 struct ArticleRow {
@@ -61,61 +50,6 @@ pub async fn login_page() -> impl IntoResponse {
             .render()
             .unwrap_or_default(),
     )
-}
-
-pub async fn dashboard(
-    State(state): State<AppState>,
-    auth_user: Option<AuthUser>,
-) -> WebResult<Response> {
-    let user_count = state.users.count().await.map_err(WebError)?;
-    if user_count == 0 {
-        return Ok(Redirect::to("/setup").into_response());
-    }
-
-    let AuthUser(user_id) = auth_user.ok_or(AppError::Unauthorized)?;
-    let user = state.users.get_by_id(user_id).await?;
-    let feed_page = state.feeds.list(user_id, None, 1000).await?;
-    let feed_count = feed_page.items.len() as i64;
-
-    let unread_count = state.articles.count_unread(user_id).await?;
-
-    let unread_query = ListArticlesQuery {
-        feed_id: None,
-        is_read: Some(false),
-        is_starred: None,
-        sort: None,
-        cursor: None,
-        direction: None,
-        limit: Some(10),
-    };
-    let unread_page = state.articles.list(user_id, unread_query).await?;
-
-    let items: Vec<ArticleRow> = unread_page
-        .items
-        .into_iter()
-        .map(|a| ArticleRow {
-            id: a.id,
-            title: a.title,
-            summary: a.summary.as_deref().map(strip_html_tags),
-            feed_title: a.feed_title,
-            published_at: a.published_at.map(|d| d.to_rfc2822()),
-            is_read: a.is_read,
-            is_starred: a.is_starred,
-        })
-        .collect();
-
-    let tpl = DashboardTemplate {
-        email: user.email,
-        timezone: user.timezone,
-        unread_count,
-        feed_count,
-        items,
-    };
-    Ok(Html(
-        tpl.render()
-            .map_err(|e| AppError::Internal(e.to_string()))?,
-    )
-    .into_response())
 }
 
 pub async fn search_page(

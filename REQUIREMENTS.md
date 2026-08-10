@@ -64,6 +64,8 @@ Build a self-hosted RSS aggregation server in Rust with SQLite storage, a TailAd
 - Articles are marked read when opened in the web UI, when scrolled to the end, or by manual toggle.
 - Starred articles preserved beyond the retention window.
 - Default article view filter is the user's last chosen setting (all, unread, read, or starred); `GET /api/v1/articles` applies this default when `is_read` and `is_starred` are not supplied.
+- Per-user hide (delete): a user can hide an article from their own view; hide is permanent for v1 (no restore/undo). Hidden state lives on the per-user `read_states` row, not the shared `articles` row, so it does not affect other subscribers of the same feed and survives crawler re-fetches (the crawler dedups by `articles.url`). Hidden articles are excluded from the article list, dashboard unread list, search results, and unread count.
+- The web article list is the dashboard (`GET /`); there is no separate dashboard page. `/articles` permanently redirects to `/` (query string preserved) for old links; `/articles/:id` (the article reader) is unaffected. It supports bulk actions: mark read, mark unread, star, unstar, hide. A checkbox on each article plus a page-level select-all; selecting a filter with more matches than the current page offers to extend the selection to every article matching the current feed/filter/sort. Bulk actions are submitted via `POST /api/v1/articles/bulk`, accepting either an explicit `article_ids` list or a `filter` object (same shape as the `GET /api/v1/articles` query params) for the "select all matching" case. Hide is the only bulk action that requires user confirmation before applying.
 
 ### 3.8 API and Clients
 - REST JSON API documented with OpenAPI; URL versioned under `/api/v1/`.
@@ -161,6 +163,7 @@ Articles:
 - `POST /api/v1/articles/:id/unread` — mark article unread.
 - `POST /api/v1/articles/:id/star` — star article.
 - `POST /api/v1/articles/:id/unstar` — unstar article.
+- `POST /api/v1/articles/bulk` — apply read/unread/star/unstar/hide to a set of articles (by `article_ids` or by `filter`), scoped to the authenticated user.
 
 Search:
 - `GET /api/v1/search?q={query}` — full-text search across article titles and content.
@@ -178,7 +181,7 @@ Health:
 
 The requirements decisions above are now stable. Remaining work for `/sc:design`:
 
-- Database schema for normalized articles, per-user subscriptions, read state, media BLOBs, feed health/backoff state, `cache_until`, and FTS5 virtual table.
+- Database schema for normalized articles, per-user subscriptions, read state, media BLOBs, feed health/backoff state, `cache_until`, and FTS5 virtual table. Includes an `is_hidden` (or equivalent) column on `read_states` for per-user article hide.
 - Full OpenAPI request/response schemas and pagination cursor format for the confirmed endpoints, including `Article` with a single primary `feed_id` and the `GET /health` endpoint.
 - Askama template set and TailAdmin static asset embedding details.
 - Future egui/Flutter client structure is out of v1 implementation scope; only note that the API is shaped for future clients.
