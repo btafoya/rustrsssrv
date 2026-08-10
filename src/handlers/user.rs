@@ -31,7 +31,11 @@ pub async fn patch_me(
     AuthUser(user_id): AuthUser,
     Json(req): Json<UserUpdate>,
 ) -> Result<Json<User>> {
+    let changing_password = req.new_password.is_some();
     let user = state.users.update(user_id, req).await?;
+    if changing_password {
+        state.auth.revoke_all_user_refresh_tokens(user_id).await?;
+    }
     Ok(Json(user))
 }
 

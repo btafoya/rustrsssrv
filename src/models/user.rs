@@ -46,13 +46,6 @@ pub struct UserUpdate {
     pub new_password: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate, ToSchema)]
-pub struct PasswordChange {
-    pub current_password: String,
-    #[validate(custom(function = "validate_password_complexity"))]
-    pub new_password: String,
-}
-
 fn validate_password_complexity(
     password: &str,
 ) -> std::result::Result<(), validator::ValidationError> {
