@@ -13,38 +13,56 @@ Rust RSS Server is a personal feed aggregator that fetches, stores, and serves R
 - Subscribe to feeds by URL or let it discover them from a website
 - Read articles in a clean, web-based interface
 - Search across everything you follow
-- Star articles to keep them around
+- Star or hide articles, individually or in bulk
 - Import and export subscriptions with OPML
 
 ## Requirements
 
-- [Rust](https://www.rust-lang.org) 1.88 or later
-- [Node.js](https://nodejs.org) and npm (for Tailwind CSS asset generation)
 - A free port for the HTTP server (default `9119`)
+- Only for [building from source](#build-from-source): [Rust](https://www.rust-lang.org) 1.88+ and [Node.js](https://nodejs.org)/npm
 
 ## Installation
 
-1. Clone the repository:
+All three methods install to `/opt/rustrsssrv` and set up the `rustrsssrv` systemd service on Ubuntu 22.04 — same binary, same layout, just different starting points. Pick one:
+
+### Quick install
+
+No checkout needed; downloads the latest release from GitHub:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/btafoya/rustrsssrv/main/install.sh | sudo bash
+```
+
+### `.deb` package
+
+Download `rustrsssrv_<version>_amd64.deb` from the [latest release](https://github.com/btafoya/rustrsssrv/releases/latest):
+
+```bash
+sudo dpkg -i rustrsssrv_*_amd64.deb
+```
+
+### Build from source
 
 ```bash
 git clone https://github.com/btafoya/rustrsssrv.git
 cd rustrsssrv
+npm install
+npm run build:all      # compiles CSS assets and the release binary
+sudo ./deploy/install.sh
 ```
 
-2. Install npm dependencies and build everything:
+Every method creates a `rustrsssrv` system user, generates `/opt/rustrsssrv/.env` with a random `JWT_SECRET` (if one doesn't already exist), and enables/starts the service. Re-run the same method later to deploy an updated binary — none of them touch an existing `.env`.
+
+Check on it with:
 
 ```bash
-npm install
-npm run build:all
+systemctl status rustrsssrv
+journalctl -u rustrsssrv -f
 ```
-
-This compiles the Tailwind CSS assets and then builds the release binary.
-
-The compiled binary will be at `target/release/rustrsssrv`.
 
 ## Configuration
 
-Configuration is read from environment variables. An optional `.env` file in the project root is also supported.
+The installers above write `/opt/rustrsssrv/.env` for you. Its variables, all read from the environment (or a `.env` file next to the binary):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -55,34 +73,11 @@ Configuration is read from environment variables. An optional `.env` file in the
 | `LOG_DIR` | `./logs` | Directory for rolling log files |
 | `RUST_LOG` | `warn` | Log level filter, e.g. `info`, `debug` |
 
-Example `.env` file:
+To generate a strong `JWT_SECRET` by hand: `openssl rand -hex 32`.
 
-```env
-DATABASE_URL=sqlite:./data/rustrsssrv.db
-JWT_SECRET=change-me-to-a-long-random-string
-PORT=9119
-ENABLE_CRAWLER=true
-LOG_DIR=./logs
-RUST_LOG=info
-```
+## Running Without systemd
 
-Generate a strong `JWT_SECRET` before running in production:
-
-```bash
-openssl rand -hex 32
-```
-
-Copy the output into your `.env` file or pass it as the `JWT_SECRET` environment variable.
-
-## Running the Server
-
-Start the server:
-
-```bash
-./target/release/rustrsssrv
-```
-
-Or with explicit environment variables:
+For local testing, or after a [source build](#build-from-source) if you don't want it installed as a service:
 
 ```bash
 DATABASE_URL=sqlite:./data/rustrsssrv.db \
@@ -103,8 +98,7 @@ When the server has no users, visiting `/` redirects to the setup wizard at `/se
 
 Once logged in, the web UI provides:
 
-- **Dashboard** (`/`) — unread counts and recent articles
-- **Articles** (`/articles`) — read, filter, and paginate articles
+- **Articles** (`/`) — filter by feed and status, paginate, and act on articles individually or in bulk (read, star, hide)
 - **Feeds** (`/feeds`) — manage subscriptions
 - **Search** (`/search`) — full-text search across subscribed articles
 - **Settings** (`/settings`) — update email, timezone, default filter, and default sort order
@@ -145,35 +139,6 @@ curl "http://localhost:9119/api/v1/search?q=rust&limit=10" \
 
 The in-process crawler polls subscribed feeds every 15 minutes by default. Feed-specific intervals can be set to `5`, `15`, `30`, `60`, `120`, `240`, `720`, or `1440` minutes. Enable the crawler with `ENABLE_CRAWLER=true`. Without it, the server serves stored articles but does not fetch new content.
 
-## Deployment (systemd, Ubuntu 22.04)
-
-Three ways to install, all producing the same layout: binary + `.env` + data/logs under `/opt/rustrsssrv`, managed by the `rustrsssrv` systemd unit.
-
-**One-line install (no checkout needed)** — downloads the latest release from GitHub:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/btafoya/rustrsssrv/main/install.sh | sudo bash
-```
-
-**`.deb` package** — download `rustrsssrv_<version>_amd64.deb` from the [latest release](https://github.com/btafoya/rustrsssrv/releases/latest) and install it. The user, `.env`, and systemd unit are set up by the package's postinst script:
-
-```bash
-sudo dpkg -i rustrsssrv_*_amd64.deb
-```
-
-**From a local checkout** — after building the release binary (`npm run build:all`):
-
-```bash
-sudo ./deploy/install.sh
-```
-
-All three create a `rustrsssrv` system user, generate `/opt/rustrsssrv/.env` with a random `JWT_SECRET` (if one doesn't already exist), and enable/start the `rustrsssrv` systemd unit. Re-running any of them deploys an updated binary without overwriting an existing `.env`.
-
-```bash
-systemctl status rustrsssrv
-journalctl -u rustrsssrv -f
-```
-
 ## Development
 
 Install npm dependencies and build assets before running or testing:
@@ -200,6 +165,10 @@ Regenerate SQLx offline query data after any schema or query change:
 export DATABASE_URL=sqlite:./data/rustrsssrv.db
 cargo sqlx prepare -- --all-targets
 ```
+
+### Releasing
+
+`npm run release -- X.Y.Z` runs the quality gate, bumps the version in `Cargo.toml`, commits, tags, and pushes — which triggers `.github/workflows/release.yml` to build and publish the release binary, `.deb`, and tarball.
 
 ## Who Made This
 
