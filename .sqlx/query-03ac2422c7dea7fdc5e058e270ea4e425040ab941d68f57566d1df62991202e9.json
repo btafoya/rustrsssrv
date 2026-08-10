@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT 1 as \"found!: i64\" FROM read_states WHERE user_id = (SELECT id FROM users WHERE email = ?) AND article_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "found!: i64",
+        "ordinal": 0,
+        "type_info": "Null"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "03ac2422c7dea7fdc5e058e270ea4e425040ab941d68f57566d1df62991202e9"
+}

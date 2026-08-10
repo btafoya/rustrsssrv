@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT a.id as \"id!\"\n            FROM articles a\n            JOIN article_feeds af ON af.article_id = a.id\n            JOIN subscriptions s ON s.feed_id = af.feed_id AND s.user_id = ?\n            LEFT JOIN read_states rs ON rs.article_id = a.id AND rs.user_id = ?\n            WHERE af.feed_id = (\n                SELECT MIN(af2.feed_id)\n                FROM article_feeds af2\n                JOIN subscriptions s2 ON s2.feed_id = af2.feed_id AND s2.user_id = ?\n                WHERE af2.article_id = a.id\n            )\n            AND COALESCE(rs.is_hidden, 0) = 0\n            AND (? IS NULL OR af.feed_id = ?)\n            AND (? IS NULL OR rs.is_read = ?)\n            AND (? IS NULL OR rs.is_starred = ?)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "289295f455456b20ec9bc19abb8b1f269486d42d5384a7dd4e642b4d301d2574"
+}

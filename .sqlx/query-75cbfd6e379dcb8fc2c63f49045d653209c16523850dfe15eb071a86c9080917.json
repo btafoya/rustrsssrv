@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO read_states (user_id, article_id, created_at, updated_at) SELECT user_id, ?, ?, ? FROM subscriptions WHERE feed_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "75cbfd6e379dcb8fc2c63f49045d653209c16523850dfe15eb071a86c9080917"
+}
