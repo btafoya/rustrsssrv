@@ -3,6 +3,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/Rust-1.88+-orange.svg)](https://www.rust-lang.org)
 [![GitHub Repo](https://img.shields.io/badge/GitHub-btafoya%2Frustrsssrv-blue.svg)](https://github.com/btafoya/rustrsssrv)
+[![Release](https://github.com/btafoya/rustrsssrv/actions/workflows/release.yml/badge.svg)](https://github.com/btafoya/rustrsssrv/actions/workflows/release.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/btafoya/rustrsssrv)](https://github.com/btafoya/rustrsssrv/releases/latest)
 
 A self-hosted RSS aggregation server for keeping up with the web on your own terms.
 
