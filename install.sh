@@ -50,6 +50,7 @@ chown -R rustrsssrv:rustrsssrv "$INSTALL_DIR"
 
 install -m 644 "$TMP/rustrsssrv.service" /etc/systemd/system/rustrsssrv.service
 systemctl daemon-reload
-systemctl enable --now rustrsssrv
+systemctl enable rustrsssrv
+systemctl restart rustrsssrv
 
 echo "rustrsssrv installed and started. Check status with: systemctl status rustrsssrv"
