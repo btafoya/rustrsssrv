@@ -31,24 +31,24 @@
         <button type="button" id="select-all-matching" class="hidden text-sm text-blue-700 underline">Select all matching this filter</button>
         {% endif %}
     </div>
-    <form method="GET" action="/" class="flex items-center space-x-2">
-        <select name="feed_id" class="border rounded px-2 py-1">
+    <form method="GET" action="/" class="flex flex-col sm:flex-row sm:items-center gap-2">
+        <select name="feed_id" class="border rounded px-2 py-1 w-full sm:w-auto">
             <option value="" {% if feed_id.is_none() %}selected{% endif %}>All Feeds</option>
             {% for f in feeds %}
             <option value="{{ f.id }}" {% if f.selected %}selected{% endif %}>{{ f.label }}</option>
             {% endfor %}
         </select>
-        <select name="filter" class="border rounded px-2 py-1">
+        <select name="filter" class="border rounded px-2 py-1 w-full sm:w-auto">
             <option value="all" {% if filter == "all" %}selected{% endif %}>All</option>
             <option value="unread" {% if filter == "unread" %}selected{% endif %}>Unread</option>
             <option value="read" {% if filter == "read" %}selected{% endif %}>Read</option>
             <option value="starred" {% if filter == "starred" %}selected{% endif %}>Starred</option>
         </select>
-        <select name="sort" class="border rounded px-2 py-1">
+        <select name="sort" class="border rounded px-2 py-1 w-full sm:w-auto">
             <option value="oldest_first" {% if sort == "oldest_first" %}selected{% endif %}>Oldest first</option>
             <option value="newest_first" {% if sort == "newest_first" %}selected{% endif %}>Newest first</option>
         </select>
-        <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Apply</button>
+        <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded w-full sm:w-auto">Apply</button>
     </form>
 </div>
 
